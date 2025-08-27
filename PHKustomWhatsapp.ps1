@@ -16,6 +16,10 @@ $global:InstanceId = $null
 $global:Token = $null
 $global:BaseUrl = $null
 
+# --- Dynamic config path (per-user, not hardcoded) ---
+$script:ConfigDir = Join-Path $env:APPDATA 'PHWhatsapp'
+$script:ConfigFilePath = Join-Path $script:ConfigDir 'config.json'
+
 # --- Ensure TLS 1.2 for secure communication ---
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 # --- Utility: Clear all functions from memory ---
@@ -92,8 +96,9 @@ function New-WhatsappConfigFile {
     # This function is typically called internally by Load-WhatsappConfig.
     #>
     Write-Host "Checking for WhatsApp configuration file..." -ForegroundColor DarkYellow
-    $ConfigFilePath = "c:\Programdata\PHWhatsapp\config.json"
-    $ConfigDirPath = Split-Path -Path $ConfigFilePath -Parent
+
+    $ConfigFilePath = $script:ConfigFilePath
+    $ConfigDirPath = $script:ConfigDir
 
     if (Test-Path $ConfigFilePath) {
         Write-Host "Configuration file already exists at '$ConfigFilePath'." -ForegroundColor Green
@@ -153,7 +158,9 @@ function Get-WhatsappConfig {
     .EXAMPLE
     Get-WhatsappConfig
     #>
-    $ConfigFilePath = "c:\Programdata\PHWhatsapp\config.json"
+
+    $ConfigFilePath = $script:ConfigFilePath
+
 
     if (-not (Test-Path $ConfigFilePath)) {
         Write-Host "WhatsApp configuration file not found. Attempting to create it..." -ForegroundColor Yellow
@@ -192,8 +199,61 @@ function Get-WhatsappConfig {
     }
 }
 
-# Load configuration when the module is sourced
-Get-WhatsappConfig | Out-Null # Suppress output if successful, show errors if not
+
+# Load configuration when the module is imported (not executed directly)
+if ($MyInvocation.InvocationName -eq '.') {
+    # Dot-sourced, skip auto-load
+} else {
+    Get-WhatsappConfig | Out-Null
+}
+# Export only primary functions
+Export-ModuleMember -Function \
+    Send-Whatsapp, \
+    Send-WhatsappFileByUpload, \
+    Send-WhatsappFileByUrl, \
+    Send-WhatsappLocation, \
+    Send-WhatsappContact, \
+    Get-LastIncomingMessages, \
+    Get-LastOutgoingMessages, \
+    Get-ChatHistory, \
+    Set-ChatRead, \
+    Get-WhatsappFile, \
+    Get-Contacts, \
+    Test-WhatsappAvailability, \
+    Get-WhatsappInstanceStatus, \
+    Get-WhatsappMessageStatus, \
+    Receive-WhatsappNotification, \
+    Remove-WhatsappNotification, \
+    Get-WhatsappSettings, \
+    Set-WhatsappSettings, \
+    Get-WhatsappInstanceState, \
+    Restart-WhatsappInstance, \
+    Disconnect-WhatsappInstance, \
+    Get-WhatsappQrCode, \
+    Get-WhatsappAuthorizationCode, \
+    Set-WhatsappProfilePicture, \
+    Update-WhatsappApiToken, \
+    Get-WhatsappWaAccountInfo, \
+    Send-WhatsappPoll, \
+    Send-WhatsappForwardedMessage, \
+    Send-WhatsappInteractiveButtons, \
+    Send-WhatsappTypingNotification, \
+    Get-WhatsappChatMessage, \
+    Get-WhatsappMessagesCount, \
+    Get-WhatsappMessagesQueue, \
+    Clear-WhatsappMessagesQueue, \
+    Get-WhatsappWebhooksCount, \
+    Clear-WhatsappWebhooksQueue, \
+    New-WhatsappGroup, \
+    Set-WhatsappGroupName, \
+    Get-WhatsappGroupData, \
+    Add-WhatsappGroupParticipant, \
+    Remove-WhatsappGroupParticipant, \
+    Set-WhatsappGroupAdmin, \
+    Remove-WhatsappGroupAdmin, \
+    Set-WhatsappGroupPicture, \
+    Exit-WhatsappGroup, \
+    Send-WhatsappTextStatus
 
 # --- Helper Function for Number Formatting ---
 function Format-WhatsappNumber {
