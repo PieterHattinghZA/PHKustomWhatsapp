@@ -17,7 +17,7 @@ $global:Token = $null
 $global:BaseUrl = $null
 
 # --- Dynamic config path (per-user, not hardcoded) ---
-$script:ConfigDir = Join-Path $env:APPDATA 'PHWhatsapp'
+$script:ConfigDir = Join-Path $env:ProgramData $env:username 'PHWhatsapp'
 $script:ConfigFilePath = Join-Path $script:ConfigDir 'config.json'
 
 # --- Ensure TLS 1.2 for secure communication ---
@@ -206,56 +206,10 @@ if ($MyInvocation.InvocationName -eq '.') {
 } else {
     Get-WhatsappConfig | Out-Null
 }
-# Export only primary functions for module users
-Export-ModuleMember -Function \
-    Send-Whatsapp,
-    Send-WhatsappFileByUpload,
-    Send-WhatsappFileByUrl,
-    Send-WhatsappLocation,
-    Send-WhatsappContact,
-    Get-LastIncomingMessages,
-    Get-LastOutgoingMessages,
-    Get-ChatHistory,
-    Set-ChatRead,
-    Get-WhatsappFile,
-    Get-Contacts,
-    Test-WhatsappAvailability,
-    Get-WhatsappInstanceStatus,
-    Get-WhatsappMessageStatus,
-    Receive-WhatsappNotification,
-    Remove-WhatsappNotification,
-    Get-WhatsappSettings,
-    Set-WhatsappSettings,
-    Get-WhatsappInstanceState,
-    Restart-WhatsappInstance,
-    Disconnect-WhatsappInstance,
-    Get-WhatsappQrCode,
-    Get-WhatsappAuthorizationCode,
-    Set-WhatsappProfilePicture,
-    Update-WhatsappApiToken,
-    Get-WhatsappWaAccountInfo,
-    Send-WhatsappPoll,
-    Send-WhatsappForwardedMessage,
-    Send-WhatsappInteractiveButtons,
-    Send-WhatsappTypingNotification,
-    Get-WhatsappChatMessage,
-    Get-WhatsappMessagesCount,
-    Get-WhatsappMessagesQueue,
-    Clear-WhatsappMessagesQueue,
-    Get-WhatsappWebhooksCount,
-    Clear-WhatsappWebhooksQueue,
-    New-WhatsappGroup,
-    Set-WhatsappGroupName,
-    Get-WhatsappGroupData,
-    Add-WhatsappGroupParticipant,
-    Remove-WhatsappGroupParticipant,
-    Set-WhatsappGroupAdmin,
-    Remove-WhatsappGroupAdmin,
-    Set-WhatsappGroupPicture,
-    Exit-WhatsappGroup,
-    Send-WhatsappTextStatus,
-    Send-WhatsappVoiceStatus,
-    Send-WhatsappMediaStatus
+# Export only primary functions
+Export-ModuleMember -Function `
+    Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappTextStatus
+
 # --- Helper Function for Number Formatting ---
 function Format-WhatsappNumber {
     <#

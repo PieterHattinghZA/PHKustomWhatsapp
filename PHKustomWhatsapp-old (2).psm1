@@ -206,55 +206,56 @@ if ($MyInvocation.InvocationName -eq '.') {
 } else {
     Get-WhatsappConfig | Out-Null
 }
-# Export only primary functions
+# Export only primary functions for module users
 Export-ModuleMember -Function \
-    Send-Whatsapp, \
-    Send-WhatsappFileByUpload, \
-    Send-WhatsappFileByUrl, \
-    Send-WhatsappLocation, \
-    Send-WhatsappContact, \
-    Get-LastIncomingMessages, \
-    Get-LastOutgoingMessages, \
-    Get-ChatHistory, \
-    Set-ChatRead, \
-    Get-WhatsappFile, \
-    Get-Contacts, \
-    Test-WhatsappAvailability, \
-    Get-WhatsappInstanceStatus, \
-    Get-WhatsappMessageStatus, \
-    Receive-WhatsappNotification, \
-    Remove-WhatsappNotification, \
-    Get-WhatsappSettings, \
-    Set-WhatsappSettings, \
-    Get-WhatsappInstanceState, \
-    Restart-WhatsappInstance, \
-    Disconnect-WhatsappInstance, \
-    Get-WhatsappQrCode, \
-    Get-WhatsappAuthorizationCode, \
-    Set-WhatsappProfilePicture, \
-    Update-WhatsappApiToken, \
-    Get-WhatsappWaAccountInfo, \
-    Send-WhatsappPoll, \
-    Send-WhatsappForwardedMessage, \
-    Send-WhatsappInteractiveButtons, \
-    Send-WhatsappTypingNotification, \
-    Get-WhatsappChatMessage, \
-    Get-WhatsappMessagesCount, \
-    Get-WhatsappMessagesQueue, \
-    Clear-WhatsappMessagesQueue, \
-    Get-WhatsappWebhooksCount, \
-    Clear-WhatsappWebhooksQueue, \
-    New-WhatsappGroup, \
-    Set-WhatsappGroupName, \
-    Get-WhatsappGroupData, \
-    Add-WhatsappGroupParticipant, \
-    Remove-WhatsappGroupParticipant, \
-    Set-WhatsappGroupAdmin, \
-    Remove-WhatsappGroupAdmin, \
-    Set-WhatsappGroupPicture, \
-    Exit-WhatsappGroup, \
-    Send-WhatsappTextStatus
-
+    Send-Whatsapp,
+    Send-WhatsappFileByUpload,
+    Send-WhatsappFileByUrl,
+    Send-WhatsappLocation,
+    Send-WhatsappContact,
+    Get-LastIncomingMessages,
+    Get-LastOutgoingMessages,
+    Get-ChatHistory,
+    Set-ChatRead,
+    Get-WhatsappFile,
+    Get-Contacts,
+    Test-WhatsappAvailability,
+    Get-WhatsappInstanceStatus,
+    Get-WhatsappMessageStatus,
+    Receive-WhatsappNotification,
+    Remove-WhatsappNotification,
+    Get-WhatsappSettings,
+    Set-WhatsappSettings,
+    Get-WhatsappInstanceState,
+    Restart-WhatsappInstance,
+    Disconnect-WhatsappInstance,
+    Get-WhatsappQrCode,
+    Get-WhatsappAuthorizationCode,
+    Set-WhatsappProfilePicture,
+    Update-WhatsappApiToken,
+    Get-WhatsappWaAccountInfo,
+    Send-WhatsappPoll,
+    Send-WhatsappForwardedMessage,
+    Send-WhatsappInteractiveButtons,
+    Send-WhatsappTypingNotification,
+    Get-WhatsappChatMessage,
+    Get-WhatsappMessagesCount,
+    Get-WhatsappMessagesQueue,
+    Clear-WhatsappMessagesQueue,
+    Get-WhatsappWebhooksCount,
+    Clear-WhatsappWebhooksQueue,
+    New-WhatsappGroup,
+    Set-WhatsappGroupName,
+    Get-WhatsappGroupData,
+    Add-WhatsappGroupParticipant,
+    Remove-WhatsappGroupParticipant,
+    Set-WhatsappGroupAdmin,
+    Remove-WhatsappGroupAdmin,
+    Set-WhatsappGroupPicture,
+    Exit-WhatsappGroup,
+    Send-WhatsappTextStatus,
+    Send-WhatsappVoiceStatus,
+    Send-WhatsappMediaStatus
 # --- Helper Function for Number Formatting ---
 function Format-WhatsappNumber {
     <#
