@@ -854,14 +854,19 @@ function Get-WhatsappFile {
     .DESCRIPTION
     This function gets a file (e.g., image, video, document) associated with a specific message ID
     to a local path.
+    .PARAMETER ChatId
+    The ID of the chat containing the file to get.
     .PARAMETER MessageId
     The ID of the message containing the file to get.
     .PARAMETER SavePath
     The full path including filename where the file should be saved (e.g., "C:\downloads\myimage.jpg").
     .EXAMPLE
-    Get-WhatsappFile -MessageId "ABCD12345" -SavePath "C:\temp\downloaded_file.jpg"
+    Get-WhatsappFile -ChatId "27731234567@c.us" -MessageId "ABCD12345" -SavePath "C:\temp\downloaded_file.jpg"
     #>
 param(
+        [Parameter(Mandatory = $true)]
+        [string]$ChatId,
+
         [Parameter(Mandatory = $true)]
         [string]$MessageId,
 
@@ -869,7 +874,18 @@ param(
         [string]$SavePath
     )
 
-    return Invoke-WhatsappApi -Endpoint "downloadFile" -Method "GET" -QueryParams @{ idMessage = $MessageId } -OutFile $SavePath
+    $body = @{
+        chatId = $ChatId
+        idMessage = $MessageId
+    }
+
+    $response = Invoke-WhatsappApi -Endpoint "downloadFile" -Method "POST" -Body $body
+    if ($response -and $response.downloadUrl) {
+        Invoke-WebRequest -Uri $response.downloadUrl -OutFile $SavePath -UseBasicParsing
+        return $true
+    } else {
+        throw "Failed to retrieve download URL from Green API response: $($response | ConvertTo-Json -Depth 2 -Compress)"
+    }
 
 }
 
@@ -2154,7 +2170,90 @@ function Send-WhatsappMediaStatus {
     return Invoke-WhatsappApi -Endpoint "sendStatusMedia" -Body $Body
 
 }
+# --- JSON Database Functions ---
 
+function Get-LocalChatHistory {
+    <#
+    .SYNOPSIS
+    Retrieves the local JSON-journaled chat history for a specific ChatId.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ChatId,
+
+        [Parameter(Mandatory = $false)]
+        [int]$Count = 50
+    )
+
+    $dbDir = Join-Path $env:APPDATA "PHWhatsapp\Database"
+    $dbPath = Join-Path $dbDir "history_$($ChatId.Split('@')[0]).json"
+
+    if (-not (Test-Path $dbPath)) {
+        return @()
+    }
+
+    try {
+        $history = Get-Content -Path $dbPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
+        if (-not $history) { return @() }
+        
+        # Sort oldest to newest and return the requested count from the tail
+        $sorted = $history | Sort-Object timestamp
+        return $sorted | Select-Object -Last $Count
+    } catch {
+        Write-Error "Failed to read local chat database: $_"
+        return @()
+    }
+}
+
+function Save-LocalChatMessage {
+    <#
+    .SYNOPSIS
+    Saves or updates a message in the local JSON database file.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ChatId,
+
+        [Parameter(Mandatory = $true)]
+        [object]$MessageObj
+    )
+
+    $dbDir = Join-Path $env:APPDATA "PHWhatsapp\Database"
+    if (-not (Test-Path $dbDir)) {
+        New-Item -ItemType Directory -Path $dbDir -Force | Out-Null
+    }
+
+    $dbPath = Join-Path $dbDir "history_$($ChatId.Split('@')[0]).json"
+    $history = @()
+
+    if (Test-Path $dbPath) {
+        try {
+            $raw = Get-Content -Path $dbPath -Raw -ErrorAction SilentlyContinue
+            if ($raw) {
+                $history = @(ConvertFrom-Json $raw)
+            }
+        } catch {}
+    }
+
+    # Avoid adding duplicate message IDs
+    $exists = $history | Where-Object { $_.idMessage -eq $MessageObj.idMessage }
+    if ($exists) {
+        return
+    }
+
+    $history += $MessageObj
+
+    # Keep a maximum buffer of 200 messages per contact to ensure instant sub-millisecond IO times
+    if ($history.Count -gt 200) {
+        $history = $history | Sort-Object timestamp | Select-Object -Last 200
+    }
+
+    try {
+        $history | ConvertTo-Json -Depth 5 | Set-Content -Path $dbPath -Force -Encoding UTF8
+    } catch {
+        Write-Error "Failed to write local database: $_"
+    }
+}
 # Export only primary functions
 Export-ModuleMember -Function `
-    New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus
+    New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Save-LocalChatMessage,Get-LocalChatHistory
