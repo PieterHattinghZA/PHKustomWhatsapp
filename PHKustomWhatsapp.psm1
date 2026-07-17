@@ -3,12 +3,14 @@
 WhatsApp automation and reporting toolkit using Green API.
 Author: Pieter Hattingh
 Version: 3.4
-Previous Change: 2025-07-28 22:30 (Completed the script, ensuring all functions are present and correctly implemented)
-Current Change: 2025-07-28 22:37 (Ensured full completion of the script, fixing truncation and verifying all functions are intact.)
 Description: PowerShell module for WhatsApp messaging, media, status, and contact management via Green API.
-             All config variables are loaded from an external JSON file (c:\Programdata\PHWhatsapp\config.json).
+             All config variables are loaded from an external JSON file ($env:APPDATA\PHWhatsapp\config.json).
              Robust error handling and clear error messages included.
-             Includes: TLS 1.2 enforcement, self-elevation, Clear-Host, and variable clearing at script start.
+             Includes: TLS 1.2 enforcement, variable clearing at script start.
+APIURL: https://7103.api.greenapi.com
+MediaURL: https://7103.media.greenapicom
+idInstance: 7103300833
+Nr: 27645258757
 #>
 
 # --- Global Configuration Variables (Loaded from external file) ---
@@ -17,12 +19,12 @@ $global:Token = $null
 $global:BaseUrl = $null
 
 # --- Dynamic config path (per-user, not hardcoded) ---
-$script:ConfigDir = Join-Path $env:ProgramData $env:username 'PHWhatsapp'
+$script:ConfigDir = Join-Path $env:APPDATA 'PHWhatsapp'
 $script:ConfigFilePath = Join-Path $script:ConfigDir 'config.json'
 
 # --- Ensure TLS 1.2 for secure communication ---
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-# --- Utility: Clear all functions from memory ---
+
 function Clear-WhatsappFunctions {
     <#
     .SYNOPSIS
@@ -31,9 +33,10 @@ function Clear-WhatsappFunctions {
     This function removes all WhatsApp-related functions from the session to allow for a clean reload or update.
     #>
     $functionNames = @( 
-        'Load-WhatsappConfig',
+        'New-WhatsappConfigFile',
+        'Get-WhatsappConfig',
         'Format-WhatsappNumber',
-        'Invoke-WhatsappApi',
+        'Format-PlainNumber',
         'Send-Whatsapp',
         'Send-WhatsappFileByUpload',
         'Send-WhatsappFileByUrl',
@@ -43,7 +46,7 @@ function Clear-WhatsappFunctions {
         'Get-LastOutgoingMessages',
         'Get-ChatHistory',
         'Set-ChatRead',
-        'Download-WhatsappFile',
+        'Get-WhatsappFile',
         'Get-Contacts',
         'Test-WhatsappAvailability',
         'Get-WhatsappInstanceStatus',
@@ -61,7 +64,7 @@ function Clear-WhatsappFunctions {
         'Update-WhatsappApiToken',
         'Get-WhatsappWaAccountInfo',
         'Send-WhatsappPoll',
-        'Forward-WhatsappMessage',
+        'Send-WhatsappForwardedMessage',
         'Send-WhatsappInteractiveButtons',
         'Send-WhatsappTypingNotification',
         'Get-WhatsappChatMessage',
@@ -71,7 +74,16 @@ function Clear-WhatsappFunctions {
         'Get-WhatsappWebhooksCount',
         'Clear-WhatsappWebhooksQueue',
         'New-WhatsappGroup',
-        'Set-WhatsappGroupName'
+        'Set-WhatsappGroupName',
+        'Get-WhatsappGroupData',
+        'Add-WhatsappGroupParticipant',
+        'Remove-WhatsappGroupParticipant',
+        'Set-WhatsappGroupAdmin',
+        'Remove-WhatsappGroupAdmin',
+        'Set-WhatsappGroupPicture',
+        'Exit-WhatsappGroup',
+        'Send-WhatsappVoiceStatus',
+        'Send-WhatsappMediaStatus'
     )
     foreach ($fn in $functionNames) {
         if (Get-Command $fn -ErrorAction SilentlyContinue) {
@@ -81,7 +93,6 @@ function Clear-WhatsappFunctions {
     Write-Host "All WhatsApp functions have been removed from memory." -ForegroundColor Yellow
 }
 
-# --- Function to Create Configuration File ---
 function New-WhatsappConfigFile {
     <#
     .SYNOPSIS
@@ -144,30 +155,25 @@ function New-WhatsappConfigFile {
     }
 }
 
-# --- Function to Load Configuration ---
 function Get-WhatsappConfig {
     <#
     .SYNOPSIS
     Gets Green API configuration (InstanceId, Token, BaseUrl) from a JSON file.
     .DESCRIPTION
     This function reads the Green API instance ID, API token, and base URL
-    from a JSON configuration file located at 'c:\Programdata\PHWhatsapp\config.json'.
+    from a JSON configuration file located at '$env:APPDATA\PHWhatsapp\config.json'.
     It sets these values as global variables for use by other functions in the module.
     The BaseUrl is constructed dynamically based on the InstanceId.
-    If the config file does not exist, it calls New-WhatsappConfigFile to create it.
+    If the config file does not exist, it writes a warning.
     .EXAMPLE
     Get-WhatsappConfig
     #>
 
     $ConfigFilePath = $script:ConfigFilePath
 
-
     if (-not (Test-Path $ConfigFilePath)) {
-        Write-Host "WhatsApp configuration file not found. Attempting to create it..." -ForegroundColor Yellow
-        if (-not (New-WhatsappConfigFile)) {
-            Write-Error "Failed to create or load WhatsApp configuration. Module functions may not work."
-            return $false
-        }
+        Write-Warning "WhatsApp configuration file not found at '$ConfigFilePath'. Please run 'New-WhatsappConfigFile' to create it."
+        return $false
     }
 
     try {
@@ -185,8 +191,7 @@ function Get-WhatsappConfig {
         }
 
         # Dynamically construct BaseUrl based on InstanceId
-        # Green API structure: https://<instance_id_prefix>.api.greenapi.com/waInstance<full_instance_id>
-        $instanceIdPrefix = $global:InstanceId.Substring(0, 4) # Assuming first 4 digits are the prefix
+        $instanceIdPrefix = $global:InstanceId.Substring(0, 4)
         $global:BaseUrl = "https://$instanceIdPrefix.api.greenapi.com/waInstance$global:InstanceId"
 
         Write-Host "Configuration loaded successfully." -ForegroundColor Green
@@ -199,18 +204,13 @@ function Get-WhatsappConfig {
     }
 }
 
-
 # Load configuration when the module is imported (not executed directly)
 if ($MyInvocation.InvocationName -eq '.') {
     # Dot-sourced, skip auto-load
 } else {
     Get-WhatsappConfig | Out-Null
 }
-# Export only primary functions
-Export-ModuleMember -Function `
-    Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappTextStatus
 
-# --- Helper Function for Number Formatting ---
 function Format-WhatsappNumber {
     <#
     .SYNOPSIS
@@ -322,10 +322,110 @@ function Format-PlainNumber {
     return $n
 }
 
-# --- Messaging Functions ---
+# --- Private Helper Function to Invoke Green API ---
+function Invoke-WhatsappApi {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Endpoint,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('GET', 'POST', 'PUT', 'DELETE')]
+        [string]$Method = 'POST',
+
+        [Parameter(Mandatory = $false)]
+        [object]$Body,
+
+        [Parameter(Mandatory = $false)]
+        [hashtable]$QueryParams,
+
+        [Parameter(Mandatory = $false)]
+        [string]$OutFile
+    )
+
+    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
+        Write-Error "API credentials are not loaded. Please ensure Get-WhatsappConfig runs successfully."
+        return $null
+    }
+
+    # Green API deleteNotification endpoint has the token in the middle:
+    # {{BaseUrl}}/deleteNotification/{{Token}}/{{ReceiptId}}
+    if ($Endpoint -match '^deleteNotification/(.+)$') {
+        $receipt = $Matches[1]
+        $url = "$($global:BaseUrl.TrimEnd('/'))/deleteNotification/$global:Token/$receipt"
+    } else {
+        $url = "$($global:BaseUrl.TrimEnd('/'))/$Endpoint/$global:Token"
+    }
+
+    if ($QueryParams -and $QueryParams.Count -gt 0) {
+        $queryString = ($QueryParams.Keys | ForEach-Object { "$_=$($QueryParams.$_)" }) -join '&'
+        $url += "?$queryString"
+    }
+
+    $headers = @{"Accept" = "application/json"}
+    $contentType = "application/json"
+
+    $bodyPayload = $null
+    if ($null -ne $Body) {
+        if ($Body -is [string]) {
+            $bodyPayload = $Body
+        } else {
+            $bodyPayload = $Body | ConvertTo-Json -Depth 4 -Compress
+        }
+    }
+
+    $restParams = @{
+        Uri = $url
+        Method = $Method
+        Headers = $headers
+        ErrorAction = 'Stop'
+    }
+
+    if ($null -ne $bodyPayload) {
+        $restParams.Body = $bodyPayload
+        $restParams.ContentType = $contentType
+    }
+
+    if ($OutFile) {
+        $restParams.OutFile = $OutFile
+    }
+
+    try {
+        $response = Invoke-RestMethod @restParams
+        if ($OutFile) {
+            return $true
+        }
+        return $response
+    } catch {
+        Write-Error "API Call to '$Endpoint' failed: $_"
+        if ($_.Exception.Response) {
+            try {
+                $ErrorResponse = $_.Exception.Response.GetResponseStream()
+                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
+                $ErrorContent = $Reader.ReadToEnd()
+                $Reader.Close()
+                if ($ErrorContent) {
+                    try {
+                        $ErrorDetails = $ErrorContent | ConvertFrom-Json
+                        if ($ErrorDetails -and $ErrorDetails.message) {
+                            Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
+                        } else {
+                            Write-Error "Raw Error Response: $ErrorContent"
+                        }
+                    } catch {
+                        Write-Error "Raw Error Response: $ErrorContent"
+                    }
+                }
+            } catch {
+                Write-Error "Could not parse detailed API error response from Green API."
+            }
+        }
+        return $null
+    }
+}
 
 function Send-Whatsapp {
-    <#
+<#
     .SYNOPSIS
     Sends a WhatsApp text message.
     .DESCRIPTION
@@ -343,7 +443,7 @@ function Send-Whatsapp {
     .EXAMPLE
     Send-Whatsapp -ChatId "27731234567@c.us" -Message "Hello again!"
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -353,11 +453,6 @@ function Send-Whatsapp {
         [Parameter(Mandatory = $true)]
         [string]$Message
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Get-WhatsappConfig runs successfully."
-        return $null
-    }
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
@@ -371,43 +466,16 @@ function Send-Whatsapp {
         return $null
     }
 
-    $Endpoint = "sendMessage"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $targetChatId
         message = $Message
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "sendMessage" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Send-WhatsappFileByUpload {
-    <#
+<#
     .SYNOPSIS
     Sends a WhatsApp media message by uploading a local file.
     .DESCRIPTION
@@ -425,7 +493,7 @@ function Send-WhatsappFileByUpload {
     .EXAMPLE
     Send-WhatsappFileByUpload -Number "0731234567" -FilePath "C:\path\to\image.jpg" -Caption "My image"
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -439,16 +507,6 @@ function Send-WhatsappFileByUpload {
         [string]$Caption
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
-
-    if (-not (Test-Path $FilePath -PathType Leaf)) {
-        Write-Error "File not found at '$FilePath'."
-        return $null
-    }
-
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
@@ -461,13 +519,15 @@ function Send-WhatsappFileByUpload {
         return $null
     }
 
+    if (-not (Test-Path $FilePath -PathType Leaf)) {
+        Write-Error "File not found at '$FilePath'."
+        return $null
+    }
+
     $fileBytes = [System.IO.File]::ReadAllBytes($FilePath)
     $base64File = [System.Convert]::ToBase64String($fileBytes)
     $fileName = [System.IO.Path]::GetFileName($FilePath)
 
-    $Endpoint = "sendFileByUpload"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $targetChatId
         fileName = $fileName
@@ -476,36 +536,12 @@ function Send-WhatsappFileByUpload {
     if ($Caption) {
         $Body.caption = $Caption
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "sendFileByUpload" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Send-WhatsappFileByUrl {
-    <#
+<#
     .SYNOPSIS
     Sends a WhatsApp media message by providing a URL to the file.
     .DESCRIPTION
@@ -525,7 +561,7 @@ function Send-WhatsappFileByUrl {
     .EXAMPLE
     Send-WhatsappFileByUrl -Number "0731234567" -FileUrl "https://example.com/image.png" -FileName "example.png" -Caption "Online image"
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -542,11 +578,6 @@ function Send-WhatsappFileByUrl {
         [string]$Caption
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
-
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
@@ -559,9 +590,6 @@ function Send-WhatsappFileByUrl {
         return $null
     }
 
-    $Endpoint = "sendFileByUrl"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $targetChatId
         urlFile = $FileUrl
@@ -570,36 +598,12 @@ function Send-WhatsappFileByUrl {
     if ($Caption) {
         $Body.caption = $Caption
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "sendFileByUrl" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Send-WhatsappLocation {
-    <#
+<#
     .SYNOPSIS
     Sends a WhatsApp location message.
     .DESCRIPTION
@@ -620,7 +624,7 @@ function Send-WhatsappLocation {
     .EXAMPLE
     Send-WhatsappLocation -Number "0731234567" -Latitude -25.747868 -Longitude 28.229271 -Name "Pretoria" -Address "Gauteng, South Africa"
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -640,11 +644,6 @@ function Send-WhatsappLocation {
         [string]$Address
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
-
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
@@ -657,9 +656,6 @@ function Send-WhatsappLocation {
         return $null
     }
 
-    $Endpoint = "sendLocation"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $targetChatId
         latitude = $Latitude
@@ -667,36 +663,12 @@ function Send-WhatsappLocation {
     }
     if ($Name) { $Body.nameLocation = $Name }
     if ($Address) { $Body.address = $Address }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "sendLocation" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Send-WhatsappContact {
-    <#
+<#
     .SYNOPSIS
     Sends a WhatsApp contact card (vCard).
     .DESCRIPTION
@@ -713,7 +685,7 @@ function Send-WhatsappContact {
     .EXAMPLE
     Send-WhatsappContact -Number "0731234567" -ContactNumber "27821234567" -ContactName "John Doe"
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -727,11 +699,6 @@ function Send-WhatsappContact {
         [string]$ContactName
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
-
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
@@ -744,44 +711,17 @@ function Send-WhatsappContact {
         return $null
     }
 
-    $Endpoint = "sendContact"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $targetChatId
         contact = $ContactNumber
     }
     if ($ContactName) { $Body.name = $ContactName }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "sendContact" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Get-LastIncomingMessages {
-    <#
+<#
     .SYNOPSIS
     Retrieves recent incoming WhatsApp messages.
     .DESCRIPTION
@@ -792,50 +732,17 @@ function Get-LastIncomingMessages {
     .EXAMPLE
     Get-LastIncomingMessages -Minutes 5
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [int]$Minutes
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "lastIncomingMessages" -Method "GET" -QueryParams @{ minutes = $Minutes }
 
-    $Endpoint = "lastIncomingMessages"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $QueryParams = @{ minutes = $Minutes }
-    $queryString = ($QueryParams.Keys | ForEach-Object { "$_=$($QueryParams.$_)" }) -join '&'
-    $Url += "?$queryString"
-    $Headers = @{"Accept" = "application/json"}
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Get-LastOutgoingMessages {
-    <#
+<#
     .SYNOPSIS
     Retrieves recent outgoing WhatsApp messages.
     .DESCRIPTION
@@ -846,50 +753,17 @@ function Get-LastOutgoingMessages {
     .EXAMPLE
     Get-LastOutgoingMessages -Minutes 5
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [int]$Minutes
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "lastOutgoingMessages" -Method "GET" -QueryParams @{ minutes = $Minutes }
 
-    $Endpoint = "lastOutgoingMessages"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $QueryParams = @{ minutes = $Minutes }
-    $queryString = ($QueryParams.Keys | ForEach-Object { "$_=$($QueryParams.$_)" }) -join '&'
-    $Url += "?$queryString"
-    $Headers = @{"Accept" = "application/json"}
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Get-ChatHistory {
-    <#
+<#
     .SYNOPSIS
     Retrieves chat history for a specific WhatsApp chat.
     .DESCRIPTION
@@ -904,7 +778,7 @@ function Get-ChatHistory {
     .EXAMPLE
     Get-ChatHistory -Number "0731234567" -Count 10
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -914,11 +788,6 @@ function Get-ChatHistory {
         [Parameter(Mandatory = $true)]
         [int]$Count
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
@@ -932,43 +801,16 @@ function Get-ChatHistory {
         return $null
     }
 
-    $Endpoint = "getChatHistory"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $targetChatId
         count = $Count
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "getChatHistory" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Set-ChatRead {
-    <#
+<#
     .SYNOPSIS
     Marks a WhatsApp chat as read.
     .DESCRIPTION
@@ -982,58 +824,31 @@ function Set-ChatRead {
     Set-ChatRead -Number "0731234567"
     #>
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$Number
-)
+        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+        [string]$Number,
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
+        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [string]$ChatId
+    )
+
+    $targetChatId = $null
+    if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
+        $targetChatId = Format-WhatsappNumber -Number $Number
+    } else {
+        $targetChatId = $ChatId
     }
 
-    $targetChatId = Format-WhatsappNumber -Number $Number
-    
     if (-not $targetChatId) {
         Write-Error "Invalid number or chat ID provided."
         return $null
     }
 
-    $Endpoint = "readChat"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Body = @{
-        chatId = $targetChatId
-    }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "readChat" -Body @{ chatId = $targetChatId }
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Get-WhatsappFile {
-    <#
+<#
     .SYNOPSIS
     Gets a file from an incoming WhatsApp message.
     .DESCRIPTION
@@ -1046,7 +861,7 @@ function Get-WhatsappFile {
     .EXAMPLE
     Get-WhatsappFile -MessageId "ABCD12345" -SavePath "C:\temp\downloaded_file.jpg"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$MessageId,
 
@@ -1054,42 +869,12 @@ function Get-WhatsappFile {
         [string]$SavePath
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "downloadFile" -Method "GET" -QueryParams @{ idMessage = $MessageId } -OutFile $SavePath
 
-    $Endpoint = "downloadFile"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token?idMessage=$MessageId" # Corrected URL construction (query param for ID)
-
-    try {
-        Invoke-RestMethod -Uri $Url -Method $Method -OutFile $SavePath -ErrorAction Stop
-        Write-Host "File downloaded successfully to '$SavePath'." -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Get-Contacts {
-    <#
+<#
     .SYNOPSIS
     Retrieves all WhatsApp contacts for the instance.
     .DESCRIPTION
@@ -1097,42 +882,14 @@ function Get-Contacts {
     .EXAMPLE
     Get-Contacts
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "getContacts"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getContacts" -Method "GET"
+
 }
 
 function Test-WhatsappAvailability {
-    <#
+<#
     .SYNOPSIS
     Checks if a phone number is registered on WhatsApp.
 
@@ -1152,66 +909,23 @@ function Test-WhatsappAvailability {
     .EXAMPLE
     Test-WhatsappAvailability -Number "0731234567"
     #>
-    [CmdletBinding()]
+[CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Number
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Ensure your config loader has set InstanceId, Token, and BaseUrl."
-        return $null
-    }
-
-    # Use your existing helper to normalise input (expects digits like '2773...')
     $normalized = Format-PlainNumber -Number $Number
     if (-not $normalized) {
         Write-Error "Invalid phone number provided."
         return $null
     }
+    return Invoke-WhatsappApi -Endpoint "checkWhatsapp" -Body @{ phoneNumber = $normalized }
 
-    $endpoint = "checkWhatsapp"
-    $url = ("{0}/{1}/{2}" -f $global:BaseUrl.TrimEnd('/'),$endpoint, $global:Token)
-
-    $headers = @{
-        
-        "Content-Type" = "application/json"
-    }
-
-    $body = @{ phoneNumber = $normalized } | ConvertTo-Json -Depth 3
-
-    try {
-        $response = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body $body -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API call to '$endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $rs = $_.Exception.Response.GetResponseStream()
-                $reader = New-Object System.IO.StreamReader($rs)
-                $errorContent = $reader.ReadToEnd()
-                $reader.Close()
-                if ($errorContent) {
-                    try {
-                        $err = $errorContent | ConvertFrom-Json
-                        if ($err -and $err.message) {
-                            Write-Error "Green API Error: $($err.message) (Code: $($err.code))"
-                        } else {
-                            Write-Error "Raw Error Response: $errorContent"
-                        }
-                    } catch {
-                        Write-Error "Raw Error Response: $errorContent"
-                    }
-                }
-            } catch { Write-Error "Could not parse detailed API error response." }
-        }
-        return $null
-    }
 }
 
-
 function Get-WhatsappInstanceStatus {
-    <#
+<#
     .SYNOPSIS
     Gets the current operational status of the Green API instance.
     .DESCRIPTION
@@ -1219,42 +933,14 @@ function Get-WhatsappInstanceStatus {
     .EXAMPLE
     Get-WhatsappInstanceStatus
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "getStatusInstance"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getStatusInstance" -Method "GET"
+
 }
 
 function Get-WhatsappMessageStatus {
-    <#
+<#
     .SYNOPSIS
     Gets the delivery and read status of an outgoing WhatsApp message.
     .DESCRIPTION
@@ -1264,50 +950,17 @@ function Get-WhatsappMessageStatus {
     .EXAMPLE
     Get-WhatsappMessageStatus -MessageId "ABCD12345"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$MessageId
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getMessageStatus" -Method "GET" -QueryParams @{ idMessage = $MessageId }
 
-    $Endpoint = "getMessageStatus"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $QueryParams = @{ idMessage = $MessageId }
-    $queryString = ($QueryParams.Keys | ForEach-Object { "$_=$($QueryParams.$_)" }) -join '&'
-    $Url += "?$queryString"
-    $Headers = @{"Accept" = "application/json"}
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Receive-WhatsappNotification {
-    <#
+<#
     .SYNOPSIS
     Fetches the next available notification from the incoming queue.
     .DESCRIPTION
@@ -1316,42 +969,14 @@ function Receive-WhatsappNotification {
     .EXAMPLE
     Receive-WhatsappNotification
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "receiveNotification"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "receiveNotification" -Method "GET"
+
 }
 
 function Remove-WhatsappNotification {
-    <#
+<#
     .SYNOPSIS
     Deletes a specific notification from the queue.
     .DESCRIPTION
@@ -1362,52 +987,17 @@ function Remove-WhatsappNotification {
     .EXAMPLE
     Remove-WhatsappNotification -ReceiptId "RECEIPT_XYZ"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$ReceiptId
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "deleteNotification/$ReceiptId" -Method "DELETE"
 
-    $Endpoint = "deleteNotification"
-    $Method = "DELETE"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $QueryParams = @{ receiptId = $ReceiptId }
-    $queryString = ($QueryParams.Keys | ForEach-Object { "$_=$($QueryParams.$_)" }) -join '&'
-    $Url += "?$queryString"
-    $Headers = @{"Accept" = "application/json"}
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
-# --- Account Management Functions (New) ---
-
 function Get-WhatsappSettings {
-    <#
+<#
     .SYNOPSIS
     Retrieve the current settings of the instance.
     .DESCRIPTION
@@ -1416,42 +1006,14 @@ function Get-WhatsappSettings {
     .EXAMPLE
     Get-WhatsappSettings
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "getSettings"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getSettings" -Method "GET"
+
 }
 
 function Set-WhatsappSettings {
-    <#
+<#
     .SYNOPSIS
     Configure instance settings.
     .DESCRIPTION
@@ -1509,7 +1071,7 @@ function Set-WhatsappSettings {
     .EXAMPLE
     Set-WhatsappSettings -IncomingWebhook $true -OutgoingWebhook $true -DelaySendMessagesMilliseconds 1000
     #>
-    param(
+param(
         [Parameter(Mandatory = $false)] [string]$WebhookUrl,
         [Parameter(Mandatory = $false)] [int]$DelaySendMessagesMilliseconds,
         [Parameter(Mandatory = $false)] [bool]$OutgoingWebhook,
@@ -1535,11 +1097,6 @@ function Set-WhatsappSettings {
         [Parameter(Mandatory = $false)] [bool]$DisappearingMessagesWebhook,
         [Parameter(Mandatory = $false)] [bool]$DeviceWebhook
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     $Body = @{}
     if ($PSBoundParameters.ContainsKey('WebhookUrl')) { $Body.webhookUrl = $WebhookUrl }
@@ -1571,40 +1128,12 @@ function Set-WhatsappSettings {
         Write-Error "At least one setting parameter must be provided to Set-WhatsappSettings."
         return $null
     }
+    return Invoke-WhatsappApi -Endpoint "setSettings" -Body $Body
 
-    $Endpoint = "setSettings"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Get-WhatsappInstanceState {
-    <#
+<#
     .SYNOPSIS
     Get the current operational state of the instance.
     .DESCRIPTION
@@ -1613,42 +1142,14 @@ function Get-WhatsappInstanceState {
     .EXAMPLE
     Get-WhatsappInstanceState
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "getStateInstance"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getStateInstance" -Method "GET"
+
 }
 
 function Restart-WhatsappInstance {
-    <#
+<#
     .SYNOPSIS
     Reboot the Green API instance.
     .DESCRIPTION
@@ -1657,42 +1158,14 @@ function Restart-WhatsappInstance {
     .EXAMPLE
     Restart-WhatsappInstance
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "reboot"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "reboot" -Method "GET"
+
 }
 
 function Disconnect-WhatsappInstance {
-    <#
+<#
     .SYNOPSIS
     Log out the WhatsApp account from the instance.
     .DESCRIPTION
@@ -1701,42 +1174,14 @@ function Disconnect-WhatsappInstance {
     .EXAMPLE
     Disconnect-WhatsappInstance
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "logout"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "logout" -Method "GET"
+
 }
 
 function Get-WhatsappQrCode {
-    <#
+<#
     .SYNOPSIS
     Get the QR code for instance authorization.
     .DESCRIPTION
@@ -1747,42 +1192,14 @@ function Get-WhatsappQrCode {
     .EXAMPLE
     Get-WhatsappQrCode
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "qr"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "qr" -Method "GET"
+
 }
 
 function Get-WhatsappAuthorizationCode {
-    <#
+<#
     .SYNOPSIS
     Authorize instance using a phone number and code.
     .DESCRIPTION
@@ -1793,50 +1210,17 @@ function Get-WhatsappAuthorizationCode {
     .EXAMPLE
     Get-WhatsappAuthorizationCode -PhoneNumber "27731234567"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$PhoneNumber
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getAuthorizationCode" -Body @{ phoneNumber = $PhoneNumber }
 
-    $Endpoint = "getAuthorizationCode"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Body = @{ phoneNumber = $PhoneNumber }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Set-WhatsappProfilePicture {
-    <#
+<#
     .SYNOPSIS
     Set the WhatsApp account's profile picture.
     .DESCRIPTION
@@ -1848,15 +1232,10 @@ function Set-WhatsappProfilePicture {
     .EXAMPLE
     Set-WhatsappProfilePicture -FilePath "C:\path\to\profile.jpg"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$FilePath
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     if (-not (Test-Path $FilePath -PathType Leaf)) {
         Write-Error "File not found at '$FilePath'."
@@ -1870,42 +1249,12 @@ function Set-WhatsappProfilePicture {
     $fileBytes = [System.IO.File]::ReadAllBytes($FilePath)
     $base64File = [System.Convert]::ToBase64String($fileBytes)
 
-    $Endpoint = "setProfilePicture"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Body = @{
-        file = $base64File
-    }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "setProfilePicture" -Body @{ file = $base64File }
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Update-WhatsappApiToken {
-    <#
+<#
     .SYNOPSIS
     Get a new API token for the instance.
     .DESCRIPTION
@@ -1913,42 +1262,14 @@ function Update-WhatsappApiToken {
     .EXAMPLE
     Update-WhatsappApiToken
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "updateApiToken"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "updateApiToken" -Method "GET"
+
 }
 
 function Get-WhatsappWaAccountInfo {
-    <#
+<#
     .SYNOPSIS
     Retrieve detailed WhatsApp account information.
     .DESCRIPTION
@@ -1957,44 +1278,14 @@ function Get-WhatsappWaAccountInfo {
     .EXAMPLE
     Get-WhatsappWaAccountInfo
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "getWaSettings"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getWaSettings" -Method "GET"
+
 }
 
-# --- Sending Advanced Messages Functions (New) ---
-
 function Send-WhatsappPoll {
-    <#
+<#
     .SYNOPSIS
     Send a WhatsApp poll message.
     .DESCRIPTION
@@ -2015,7 +1306,7 @@ function Send-WhatsappPoll {
     .EXAMPLE
     Send-WhatsappPoll -Number "0731234567" -Message "What's your favorite color?" -Options @("Red", "Blue", "Green") -MultipleAnswers $false
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -2034,11 +1325,6 @@ function Send-WhatsappPoll {
         [Parameter(Mandatory = $false)]
         [string]$QuotedMessageId
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
@@ -2060,9 +1346,6 @@ function Send-WhatsappPoll {
         return $null
     }
 
-    $Endpoint = "sendPoll"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $targetChatId
         message = $Message
@@ -2070,36 +1353,12 @@ function Send-WhatsappPoll {
         multipleAnswers = $MultipleAnswers
     }
     if ($QuotedMessageId) { $Body.quotedMessageId = $QuotedMessageId }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "sendPoll" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Send-WhatsappForwardedMessage {
-    <#
+<#
     .SYNOPSIS
     Send one or more forwarded messages to a chat.
     .DESCRIPTION
@@ -2115,7 +1374,7 @@ function Send-WhatsappForwardedMessage {
     .EXAMPLE
     Send-WhatsappForwardedMessage -ChatId "27731234567@c.us" -ChatIdFrom "27821234567@c.us" -Messages @("MSG1", "MSG2")
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$ChatId,
 
@@ -2129,50 +1388,18 @@ function Send-WhatsappForwardedMessage {
         [int]$TypingTime
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
-
-    $Endpoint = "forwardMessages"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $ChatId
         chatIdFrom = $ChatIdFrom
         messages = $Messages
     }
     if ($TypingTime) { $Body.typingTime = $TypingTime }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "forwardMessages" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Send-WhatsappInteractiveButtons {
-    <#
+<#
     .SYNOPSIS
     Send a message with interactive buttons.
     .DESCRIPTION
@@ -2199,7 +1426,7 @@ function Send-WhatsappInteractiveButtons {
     )
     Send-WhatsappInteractiveButtons -Number "0731234567" -Body "Please choose an option:" -Buttons $buttons -Header "Action Required"
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -2219,11 +1446,6 @@ function Send-WhatsappInteractiveButtons {
         [string]$Footer
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
-
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
@@ -2240,9 +1462,6 @@ function Send-WhatsappInteractiveButtons {
         return $null
     }
 
-    $Endpoint = "sendInteractiveButtons"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $BodyPayload = @{
         chatId = $targetChatId
         body = $Body
@@ -2250,36 +1469,12 @@ function Send-WhatsappInteractiveButtons {
     }
     if ($Header) { $BodyPayload.header = $Header }
     if ($Footer) { $BodyPayload.footer = $Footer }
-    $JsonBody = $BodyPayload | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "sendInteractiveButtons" -Body $BodyPayload
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Send-WhatsappTypingNotification {
-    <#
+<#
     .SYNOPSIS
     Send a typing or recording notification to a chat.
     .DESCRIPTION
@@ -2296,7 +1491,7 @@ function Send-WhatsappTypingNotification {
     .EXAMPLE
     Send-WhatsappTypingNotification -Number "0731234567" -TypingTime 5 -TypingType "typing"
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -2312,11 +1507,6 @@ function Send-WhatsappTypingNotification {
         [string]$TypingType = "typing"
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
-
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
@@ -2329,48 +1519,17 @@ function Send-WhatsappTypingNotification {
         return $null
     }
 
-    $Endpoint = "sendTyping"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $targetChatId
         typingTime = $TypingTime
         typingType = $TypingType
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "sendTyping" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
-# --- Journals and Queues Functions (New) ---
-
-
-
 function Get-WhatsappChatMessage {
-    <#
+<#
     .SYNOPSIS
     Retrieve a specific message by ID from a chat.
     .DESCRIPTION
@@ -2385,7 +1544,7 @@ function Get-WhatsappChatMessage {
     .EXAMPLE
     Get-WhatsappChatMessage -Number "0731234567" -IdMessage "MESSAGE_ID_ABC"
     #>
-    param(
+param(
         [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
         [string]$Number,
 
@@ -2395,11 +1554,6 @@ function Get-WhatsappChatMessage {
         [Parameter(Mandatory = $true)]
         [string]$IdMessage
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
@@ -2413,43 +1567,16 @@ function Get-WhatsappChatMessage {
         return $null
     }
 
-    $Endpoint = "getMessage"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         chatId = $targetChatId
         idMessage = $IdMessage
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "getMessage" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Get-WhatsappMessagesCount {
-    <#
+<#
     .SYNOPSIS
     Get the number of messages in the sending queue.
     .DESCRIPTION
@@ -2458,42 +1585,14 @@ function Get-WhatsappMessagesCount {
     .EXAMPLE
     Get-WhatsappMessagesCount
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "getMessagesCount"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getMessagesCount" -Method "GET"
+
 }
 
 function Get-WhatsappMessagesQueue {
-    <#
+<#
     .SYNOPSIS
     Show details of messages currently in the sending queue.
     .DESCRIPTION
@@ -2502,42 +1601,14 @@ function Get-WhatsappMessagesQueue {
     .EXAMPLE
     Get-WhatsappMessagesQueue
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "showMessagesQueue"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "showMessagesQueue" -Method "GET"
+
 }
 
 function Clear-WhatsappMessagesQueue {
-    <#
+<#
     .SYNOPSIS
     Clear all messages from the sending queue.
     .DESCRIPTION
@@ -2546,42 +1617,14 @@ function Clear-WhatsappMessagesQueue {
     .EXAMPLE
     Clear-WhatsappMessagesQueue
     #>
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
-    $Endpoint = "clearMessagesQueue"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "clearMessagesQueue" -Method "GET"
+
 }
 
 function Get-WhatsappWebhooksCount {
-    <#
+<#
     .SYNOPSIS
     Get the number of webhooks in the incoming queue.
     .DESCRIPTION
@@ -2590,44 +1633,14 @@ function Get-WhatsappWebhooksCount {
     .EXAMPLE
     Get-WhatsappWebhooksCount
     #>
-    param() # No parameters for this function
+param()
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getWebhooksCount" -Method "GET"
 
-    $Endpoint = "getWebhooksCount"
-    $Method = "GET"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Clear-WhatsappWebhooksQueue {
-    <#
+<#
     .SYNOPSIS
     Clear all webhooks from the incoming queue.
     .DESCRIPTION
@@ -2636,46 +1649,14 @@ function Clear-WhatsappWebhooksQueue {
     .EXAMPLE
     Clear-WhatsappWebhooksQueue
     #>
-    param() # No parameters for this function
+param()
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "clearWebhooksQueue" -Method "DELETE"
 
-    $Endpoint = "clearWebhooksQueue"
-    $Method = "DELETE"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Headers = @{"Accept" = "application/json"}
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
-# --- Group Management Functions (New) ---
-
 function New-WhatsappGroup {
-    <#
+<#
     .SYNOPSIS
     Create a new WhatsApp group chat.
     .DESCRIPTION
@@ -2691,7 +1672,7 @@ function New-WhatsappGroup {
     .EXAMPLE
     New-WhatsappGroup -GroupName "My New Team" -ParticipantNumbers @("0731234567", "0749876543")
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$GroupName,
 
@@ -2701,11 +1682,6 @@ function New-WhatsappGroup {
         [Parameter(ParameterSetName='ByChatIds', Mandatory = $true)]
         [string[]]$ParticipantChatIds
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     if ($GroupName.Length -gt 100) {
         Write-Error "Group name cannot exceed 100 characters."
@@ -2726,43 +1702,16 @@ function New-WhatsappGroup {
         return $null
     }
 
-    $Endpoint = "createGroup"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         groupName = $GroupName
         chatIds = $targetChatIds
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "createGroup" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Set-WhatsappGroupName {
-    <#
+<#
     .SYNOPSIS
     Change the name of a group chat.
     .DESCRIPTION
@@ -2774,7 +1723,7 @@ function Set-WhatsappGroupName {
     .EXAMPLE
     Set-WhatsappGroupName -GroupId "1234567890-123456@g.us" -NewGroupName "Updated Team Name"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
@@ -2782,53 +1731,21 @@ function Set-WhatsappGroupName {
         [string]$NewGroupName
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
-
     if ($NewGroupName.Length -gt 100) {
         Write-Error "New group name cannot exceed 100 characters."
         return $null
     }
 
-    $Endpoint = "updateGroupName"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         groupId = $GroupId
         groupName = $NewGroupName
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "updateGroupName" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Get-WhatsappGroupData {
-    <#
+<#
     .SYNOPSIS
     Retrieve detailed data for a specific group chat.
     .DESCRIPTION
@@ -2839,50 +1756,17 @@ function Get-WhatsappGroupData {
     .EXAMPLE
     Get-WhatsappGroupData -GroupId "1234567890-123456@g.us"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "getGroupData" -Body @{ groupId = $GroupId }
 
-    $Endpoint = "getGroupData"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Body = @{ groupId = $GroupId }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Add-WhatsappGroupParticipant {
-    <#
+<#
     .SYNOPSIS
     Add a participant to a group chat.
     .DESCRIPTION
@@ -2899,7 +1783,7 @@ function Add-WhatsappGroupParticipant {
     .EXAMPLE
     Add-WhatsappGroupParticipant -GroupId "1234567890-123456@g.us" -ParticipantNumber "0731234567"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
@@ -2909,11 +1793,6 @@ function Add-WhatsappGroupParticipant {
         [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
         [string]$ParticipantChatId
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
@@ -2927,43 +1806,16 @@ function Add-WhatsappGroupParticipant {
         return $null
     }
 
-    $Endpoint = "addGroupParticipant"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         groupId = $GroupId
         participantChatId = $targetChatId
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "addGroupParticipant" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Remove-WhatsappGroupParticipant {
-    <#
+<#
     .SYNOPSIS
     Remove a participant from a group chat.
     .DESCRIPTION
@@ -2978,7 +1830,7 @@ function Remove-WhatsappGroupParticipant {
     .EXAMPLE
     Remove-WhatsappGroupParticipant -GroupId "1234567890-123456@g.us" -ParticipantNumber "0731234567"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
@@ -2988,11 +1840,6 @@ function Remove-WhatsappGroupParticipant {
         [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
         [string]$ParticipantChatId
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
@@ -3006,43 +1853,16 @@ function Remove-WhatsappGroupParticipant {
         return $null
     }
 
-    $Endpoint = "removeGroupParticipant"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         groupId = $GroupId
         participantChatId = $targetChatId
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "removeGroupParticipant" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Set-WhatsappGroupAdmin {
-    <#
+<#
     .SYNOPSIS
     Grant administrator rights to a group participant.
     .DESCRIPTION
@@ -3057,7 +1877,7 @@ function Set-WhatsappGroupAdmin {
     .EXAMPLE
     Set-WhatsappGroupAdmin -GroupId "1234567890-123456@g.us" -ParticipantNumber "0731234567"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
@@ -3067,11 +1887,6 @@ function Set-WhatsappGroupAdmin {
         [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
         [string]$ParticipantChatId
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
@@ -3085,43 +1900,16 @@ function Set-WhatsappGroupAdmin {
         return $null
     }
 
-    $Endpoint = "setGroupAdmin"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         groupId = $GroupId
         participantChatId = $targetChatId
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "setGroupAdmin" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Remove-WhatsappGroupAdmin {
-    <#
+<#
     .SYNOPSIS
     Remove administrator rights from a group participant.
     .DESCRIPTION
@@ -3136,7 +1924,7 @@ function Remove-WhatsappGroupAdmin {
     .EXAMPLE
     Remove-WhatsappGroupAdmin -GroupId "1234567890-123456@g.us" -ParticipantNumber "0731234567"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
@@ -3146,11 +1934,6 @@ function Remove-WhatsappGroupAdmin {
         [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
         [string]$ParticipantChatId
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
@@ -3164,43 +1947,16 @@ function Remove-WhatsappGroupAdmin {
         return $null
     }
 
-    $Endpoint = "removeAdmin"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         groupId = $GroupId
         participantChatId = $targetChatId
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "removeAdmin" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Set-WhatsappGroupPicture {
-    <#
+<#
     .SYNOPSIS
     Set the profile picture for a group chat.
     .DESCRIPTION
@@ -3212,18 +1968,13 @@ function Set-WhatsappGroupPicture {
     .EXAMPLE
     Set-WhatsappGroupPicture -GroupId "1234567890-123456@g.us" -FilePath "C:\path\to\group_pic.jpg"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
         [Parameter(Mandatory = $true)]
         [string]$FilePath
     )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
 
     if (-not (Test-Path $FilePath -PathType Leaf)) {
         Write-Error "File not found at '$FilePath'."
@@ -3237,43 +1988,16 @@ function Set-WhatsappGroupPicture {
     $fileBytes = [System.IO.File]::ReadAllBytes($FilePath)
     $base64File = [System.Convert]::ToBase64String($fileBytes)
 
-    $Endpoint = "setGroupPicture"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
     $Body = @{
         groupId = $GroupId
         file = $base64File
     }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
+    return Invoke-WhatsappApi -Endpoint "setGroupPicture" -Body $Body
 
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
 function Exit-WhatsappGroup {
-    <#
+<#
     .SYNOPSIS
     Exit a group chat.
     .DESCRIPTION
@@ -3283,52 +2007,18 @@ function Exit-WhatsappGroup {
     .EXAMPLE
     Exit-WhatsappGroup -GroupId "1234567890-123456@g.us"
     #>
-    param(
+param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "leaveGroup" -Body @{ groupId = $GroupId }
 
-    $Endpoint = "leaveGroup"
-    $Method = "POST"
-    $Url = "$global:BaseUrl/$Endpoint/$global:Token" # Corrected URL construction
-    $Body = @{ groupId = $GroupId }
-    $JsonBody = $Body | ConvertTo-Json -Compress
-    $Headers = @{"Accept" = "application/json"}
-    $ContentType = "application/json"
-
-    try {
-        $response = Invoke-RestMethod -Uri $Url -Method $Method -Headers $Headers -ContentType $ContentType -Body $JsonBody -ErrorAction Stop
-        return $response
-    } catch {
-        Write-Error "API Call to '$Endpoint' failed: $($_.Exception.Message)"
-        if ($_.Exception.Response) {
-            try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                if ($ErrorDetails -and $ErrorDetails.message) {
-                    Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                } else {
-                    Write-Error "Raw Error Response: $ErrorContent"
-                }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
-            }
-        }
-        return $null
-    }
 }
 
-# --- Status Management Functions (Beta) ---
-<#
+# <#
 function Send-WhatsappTextStatus {
-    <#
+<#
     .SYNOPSIS
     Sends a text-based WhatsApp status (beta feature).
     .DESCRIPTION
@@ -3346,7 +2036,7 @@ function Send-WhatsappTextStatus {
     .OUTPUTS
     Returns API response or $null if not supported.
     #>
- <#   [CmdletBinding()]
+[CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -3365,32 +2055,12 @@ function Send-WhatsappTextStatus {
         [string[]]$ParticipantChatIds
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        throw "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-    }
+    # This function is currently commented out in original.
 
-    if ($ParticipantNumbers -and $ParticipantChatIds) {
-        throw "Specify only one of -ParticipantNumbers or -ParticipantChatIds, not both."
-    }
-
-    $endpoint = "sendStatusText"
-    $url = "$global:BaseUrl/$endpoint/$global:Token"
-    $body = @{ message = $Message }
-    if ($BackgroundColor) { $body.backgroundColor = $BackgroundColor }
-    if ($Font) { $body.font = $Font }
-    if ($ParticipantNumbers) { $body.participantNumbers = $ParticipantNumbers }
-    if ($ParticipantChatIds) { $body.participantChatIds = $ParticipantChatIds }
-
-    try {
-        $resp = Invoke-RestMethod -Uri $url -Method Post -Headers @{ "Content-Type" = "application/json" } -Body ($body | ConvertTo-Json -Depth 4) -ErrorAction Stop
-        return $resp
-    } catch {
-        Write-Error "Failed to send text status: $($_.Exception.Message)"
-        return $null
-    }
 }#>
+
 function Send-WhatsappVoiceStatus {
-    <#
+<#
     .SYNOPSIS
     Sends a voice note as a WhatsApp status (beta feature).
     .PARAMETER FileUrl
@@ -3402,7 +2072,7 @@ function Send-WhatsappVoiceStatus {
     .PARAMETER ParticipantChatIds
     Optional chat IDs allowed to view this status. Specify only one of ParticipantNumbers or ParticipantChatIds.
     #>
-    [CmdletBinding()]
+[CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -3419,32 +2089,23 @@ function Send-WhatsappVoiceStatus {
         [string[]]$ParticipantChatIds
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        throw "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-    }
     if ($ParticipantNumbers -and $ParticipantChatIds) {
         throw "Specify only one of -ParticipantNumbers or -ParticipantChatIds, not both."
     }
 
-    $endpoint = "sendStatusAudio"
-    $url = "$global:BaseUrl/$endpoint/$global:Token"
-    $body = @{
+    $Body = @{
         fileUrl = $FileUrl
         fileName = $FileName
     }
     if ($ParticipantNumbers) { $body.participantNumbers = $ParticipantNumbers }
     if ($ParticipantChatIds) { $body.participantChatIds = $ParticipantChatIds }
 
-    try {
-        $resp = Invoke-RestMethod -Uri $url -Method Post -Headers @{ "Content-Type" = "application/json" } -Body ($body | ConvertTo-Json -Depth 4) -ErrorAction Stop
-        return $resp
-    } catch {
-        Write-Error "Failed to send voice status: $($_.Exception.Message)"
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "sendStatusAudio" -Body $Body
+
 }
+
 function Send-WhatsappMediaStatus {
-    <#
+<#
     .SYNOPSIS
     Sends an image or video as a WhatsApp status (beta feature).
     .PARAMETER FileUrl
@@ -3458,7 +2119,7 @@ function Send-WhatsappMediaStatus {
     .PARAMETER ParticipantChatIds
     Optional chat IDs allowed to view this status. Specify only one of ParticipantNumbers or ParticipantChatIds.
     #>
-    [CmdletBinding()]
+[CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -3478,16 +2139,11 @@ function Send-WhatsappMediaStatus {
         [string[]]$ParticipantChatIds
     )
 
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        throw "API credentials are not loaded. Please ensure Load-WhatsappConfig runs successfully."
-    }
     if ($ParticipantNumbers -and $ParticipantChatIds) {
         throw "Specify only one of -ParticipantNumbers or -ParticipantChatIds, not both."
     }
 
-    $endpoint = "sendStatusMedia"
-    $url = "$global:BaseUrl/$endpoint/$global:Token"
-    $body = @{
+    $Body = @{
         fileUrl  = $FileUrl
         fileName = $FileName
     }
@@ -3495,11 +2151,10 @@ function Send-WhatsappMediaStatus {
     if ($ParticipantNumbers) { $body.participantNumbers = $ParticipantNumbers }
     if ($ParticipantChatIds) { $body.participantChatIds = $ParticipantChatIds }
 
-    try {
-        $resp = Invoke-RestMethod -Uri $url -Method Post -Headers @{ "Content-Type" = "application/json" } -Body ($body | ConvertTo-Json -Depth 4) -ErrorAction Stop
-        return $resp
-    } catch {
-        Write-Error "Failed to send media status: $($_.Exception.Message)"
-        return $null
-    }
+    return Invoke-WhatsappApi -Endpoint "sendStatusMedia" -Body $Body
+
 }
+
+# Export only primary functions
+Export-ModuleMember -Function `
+    New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus
