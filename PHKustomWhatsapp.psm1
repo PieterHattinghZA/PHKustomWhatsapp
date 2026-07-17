@@ -2,7 +2,7 @@
 .SYNOPSIS
 WhatsApp automation and reporting toolkit using Green API.
 Author: Pieter Hattingh
-Version: 3.4
+Version: 3.5
 Description: PowerShell module for WhatsApp messaging, media, status, and contact management via Green API.
              All config variables are loaded from an external JSON file ($env:APPDATA\PHWhatsapp\config.json).
              Robust error handling and clear error messages included.
@@ -83,7 +83,9 @@ function Clear-WhatsappFunctions {
         'Set-WhatsappGroupPicture',
         'Exit-WhatsappGroup',
         'Send-WhatsappVoiceStatus',
-        'Send-WhatsappMediaStatus'
+        'Send-WhatsappMediaStatus',
+        'Get-LocalChatHistory',
+        'Save-LocalChatMessage'
     )
     foreach ($fn in $functionNames) {
         if (Get-Command $fn -ErrorAction SilentlyContinue) {
@@ -2032,49 +2034,6 @@ param(
 
 }
 
-# <#
-function Send-WhatsappTextStatus {
-<#
-    .SYNOPSIS
-    Sends a text-based WhatsApp status (beta feature).
-    .DESCRIPTION
-    Posts a text status update via Green API (if supported by your plan).
-    .PARAMETER Message
-    The status text (1-500 chars).
-    .PARAMETER BackgroundColor
-    Optional background color (name or hex).
-    .PARAMETER Font
-    Optional font name (e.g. "SERIF", "SANSSERIF").
-    .PARAMETER ParticipantNumbers
-    Optional phone numbers allowed to view this status. Specify only one of ParticipantNumbers or ParticipantChatIds.
-    .PARAMETER ParticipantChatIds
-    Optional chat IDs allowed to view this status. Specify only one of ParticipantNumbers or ParticipantChatIds.
-    .OUTPUTS
-    Returns API response or $null if not supported.
-    #>
-[CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [string]$Message,
-
-        [Parameter(Mandatory = $false)]
-        [string]$BackgroundColor,
-
-        [Parameter(Mandatory = $false)]
-        [string]$Font,
-
-        [Parameter(Mandatory = $false)]
-        [string[]]$ParticipantNumbers,
-
-        [Parameter(Mandatory = $false)]
-        [string[]]$ParticipantChatIds
-    )
-
-    # This function is currently commented out in original.
-
-}#>
-
 function Send-WhatsappVoiceStatus {
 <#
     .SYNOPSIS
@@ -2170,6 +2129,7 @@ function Send-WhatsappMediaStatus {
     return Invoke-WhatsappApi -Endpoint "sendStatusMedia" -Body $Body
 
 }
+
 # --- JSON Database Functions ---
 
 function Get-LocalChatHistory {
@@ -2254,6 +2214,7 @@ function Save-LocalChatMessage {
         Write-Error "Failed to write local database: $_"
     }
 }
+
 # Export only primary functions
 Export-ModuleMember -Function `
-    New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Save-LocalChatMessage,Get-LocalChatHistory
+    New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage

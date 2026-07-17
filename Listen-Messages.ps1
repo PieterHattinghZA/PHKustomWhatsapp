@@ -1,5 +1,11 @@
 Import-Module .\PHKustomWhatsapp.psd1 -Force
 
+# --- Ensure Databases and Config Folder Exists ---
+$dbDir = Join-Path $env:APPDATA "PHWhatsapp\Database"
+if (-not (Test-Path $dbDir)) {
+    New-Item -ItemType Directory -Path $dbDir -Force | Out-Null
+}
+
 Write-Host "Monitoring WhatsApp for new incoming messages... Press Ctrl+C to stop." -ForegroundColor Cyan
 
 while ($true) {
@@ -53,6 +59,26 @@ while ($true) {
                     
                     Write-Host "`n--- Recent Conversation History (Local Database) ---" -ForegroundColor Blue
                     foreach ($hMsg in $sortedHistory) {
+                        # Legacy data structures adapter fallback hooks
+                        if ([string]::IsNullOrEmpty($hMsg.typeMessage)) {
+                            if ($hMsg.type -eq 'outgoing') {
+                                $hMsg.typeMessage = 'textMessage'
+                            } else {
+                                if ($hMsg.fileName -or $hMsg.jpegThumbnail) {
+                                    $hMsg.typeMessage = 'documentMessage'
+                                } else {
+                                    $hMsg.typeMessage = 'textMessage'
+                                }
+                            }
+                        }
+                        
+                        if ([string]::IsNullOrEmpty($hMsg.textMessage) -and $hMsg.message) {
+                            $hMsg.textMessage = $hMsg.message
+                        }
+                        if ([string]::IsNullOrEmpty($hMsg.textMessage) -and $hMsg.body) {
+                            $hMsg.textMessage = $hMsg.body
+                        }
+
                         $hTime = [DateTimeOffset]::FromUnixTimeSeconds($hMsg.timestamp).LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
                         
                         if ($hMsg.type -eq 'outgoing') {
