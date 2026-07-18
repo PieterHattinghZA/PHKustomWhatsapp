@@ -192,9 +192,16 @@ function Get-WhatsappConfig {
             return $false
         }
 
-        # Dynamically construct BaseUrl based on InstanceId
-        $instanceIdPrefix = $global:InstanceId.Substring(0, 4)
-        $global:BaseUrl = "https://$instanceIdPrefix.api.greenapi.com/waInstance$global:InstanceId"
+        # Check if config specifies a custom apiUrl/BaseUrl, otherwise construct it dynamically
+        if ($Config.apiUrl) {
+            $global:BaseUrl = "$($Config.apiUrl.TrimEnd('/'))/waInstance$global:InstanceId"
+        } elseif ($Config.BaseUrl) {
+            $global:BaseUrl = $Config.BaseUrl
+        } else {
+            # Dynamically construct BaseUrl based on InstanceId
+            $instanceIdPrefix = $global:InstanceId.Substring(0, 4)
+            $global:BaseUrl = "https://$instanceIdPrefix.api.greenapi.com/waInstance$global:InstanceId"
+        }
 
         Write-Host "Configuration loaded successfully." -ForegroundColor Green
         Write-Host "Instance ID: $($global:InstanceId)" -ForegroundColor Green
@@ -399,27 +406,78 @@ function Invoke-WhatsappApi {
         }
         return $response
     } catch {
-        Write-Error "API Call to '$Endpoint' failed: $_"
-        if ($_.Exception.Response) {
+        # Check for transient DNS / connectivity issues
+        $isDnsFailure = $false
+        $isOtherNetworkFailure = $false
+
+        if ($_.Exception) {
+            if ($_.Exception -is [System.Net.WebException]) {
+                $status = $_.Exception.Status
+                if ($status -eq [System.Net.WebExceptionStatus]::NameResolutionFailure) {
+                    $isDnsFailure = $true
+                } elseif ($status -eq [System.Net.WebExceptionStatus]::ConnectFailure -or
+                          $status -eq [System.Net.WebExceptionStatus]::Timeout -or
+                          $status -eq [System.Net.WebExceptionStatus]::ConnectionClosed -or
+                          $status -eq [System.Net.WebExceptionStatus]::ReceiveFailure -or
+                          $status -eq [System.Net.WebExceptionStatus]::SendFailure) {
+                    $isOtherNetworkFailure = $true
+                }
+            }
+
+            if (-not $isDnsFailure -and -not $isOtherNetworkFailure) {
+                $errMsg = $_.Exception.Message
+                if ($_.Exception.InnerException) {
+                    $errMsg += " " + $_.Exception.InnerException.Message
+                }
+                if ($errMsg -match "could not be resolved" -or $errMsg -match "resolving host" -or $errMsg -match "DNS") {
+                    $isDnsFailure = $true
+                } elseif ($errMsg -match "timed out" -or $errMsg -match "connection" -or $errMsg -match "offline") {
+                    $isOtherNetworkFailure = $true
+                }
+            }
+        }
+
+        # If it's a DNS failure and we are using a specific subdomain, try falling back to the universal domain
+        if ($isDnsFailure -and $url -match '^https://([^.]+)\.api\.greenapi\.com/(.*)$' -and $Matches[1] -ne 'api') {
+            $fallbackUrl = "https://api.greenapi.com/$($Matches[2])"
+            Write-Warning "DNS resolution failed for host '$($Matches[1]).api.greenapi.com'. Falling back to universal host 'api.greenapi.com'..."
             try {
-                $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                $ErrorContent = $Reader.ReadToEnd()
-                $Reader.Close()
-                if ($ErrorContent) {
-                    try {
-                        $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                        if ($ErrorDetails -and $ErrorDetails.message) {
-                            Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                        } else {
+                $restParams.Uri = $fallbackUrl
+                $response = Invoke-RestMethod @restParams
+                if ($OutFile) {
+                    return $true
+                }
+                return $response
+            } catch {
+                # Fall through to normal error handling with the fallback exception if the fallback also fails
+            }
+        }
+
+        if ($isDnsFailure -or $isOtherNetworkFailure) {
+            Write-Warning "API Call to '$Endpoint' failed due to network/connectivity issue: $($_.Exception.Message). Retrying..."
+        } else {
+            Write-Error "API Call to '$Endpoint' failed: $_"
+            if ($_.Exception.Response) {
+                try {
+                    $ErrorResponse = $_.Exception.Response.GetResponseStream()
+                    $Reader = New-Object System.IO.StreamReader($ErrorResponse)
+                    $ErrorContent = $Reader.ReadToEnd()
+                    $Reader.Close()
+                    if ($ErrorContent) {
+                        try {
+                            $ErrorDetails = $ErrorContent | ConvertFrom-Json
+                            if ($ErrorDetails -and $ErrorDetails.message) {
+                                Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
+                            } else {
+                                Write-Error "Raw Error Response: $ErrorContent"
+                            }
+                        } catch {
                             Write-Error "Raw Error Response: $ErrorContent"
                         }
-                    } catch {
-                        Write-Error "Raw Error Response: $ErrorContent"
                     }
+                } catch {
+                    Write-Error "Could not parse detailed API error response from Green API."
                 }
-            } catch {
-                Write-Error "Could not parse detailed API error response from Green API."
             }
         }
         return $null
@@ -2158,7 +2216,18 @@ function Get-LocalChatHistory {
         
         # Sort oldest to newest and return the requested count from the tail
         $sorted = $history | Sort-Object timestamp
-        return $sorted | Select-Object -Last $Count
+        $selected = $sorted | Select-Object -Last $Count
+
+        # Normalize legacy records by ensuring typeMessage and textMessage properties exist
+        foreach ($msg in $selected) {
+            if ($null -eq $msg.psobject.Properties['typeMessage']) {
+                $msg | Add-Member -NotePropertyName 'typeMessage' -NotePropertyValue $null
+            }
+            if ($null -eq $msg.psobject.Properties['textMessage']) {
+                $msg | Add-Member -NotePropertyName 'textMessage' -NotePropertyValue $null
+            }
+        }
+        return $selected
     } catch {
         Write-Error "Failed to read local chat database: $_"
         return @()

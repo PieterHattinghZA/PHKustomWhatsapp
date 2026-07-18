@@ -26,7 +26,7 @@ while ($true) {
                 $newMsgTime = [DateTimeOffset]::FromUnixTimeSeconds($notification.body.timestamp).LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
 
                 Write-Host "`n==================================================" -ForegroundColor Yellow
-                Write-Host "🔔 NEW MESSAGE RECEIVED AT $newMsgTime" -ForegroundColor Yellow
+                Write-Host "NEW MESSAGE RECEIVED AT $newMsgTime" -ForegroundColor Yellow
                 Write-Host "Sender: $senderName ($senderNumber)" -ForegroundColor Yellow
                 Write-Host "Message: $newMsgText" -ForegroundColor Yellow
                 Write-Host "==================================================" -ForegroundColor Yellow
@@ -87,7 +87,11 @@ while ($true) {
                         } else {
                             $displayName = $hMsg.senderName
                             if ([string]::IsNullOrEmpty($displayName)) {
-                                $displayName = $hMsg.senderId.Split('@')[0]
+                                if ($hMsg.senderId) {
+                                    $displayName = $hMsg.senderId.Split('@')[0]
+                                } else {
+                                    $displayName = "Unknown"
+                                }
                             }
                             $color = "Green"
                         }
