@@ -528,6 +528,11 @@ function Update-ContactsListMenu {
         $script:contactsMapping[$contact.DisplayName] = $contact.ChatId
         $script:contactsCache[$contact.ChatId] = $contact
     }
+    
+    # Restore selection if it existed
+    if ($currentSelection -and $lstContacts.Items.Contains($currentSelection)) {
+        $lstContacts.SelectedItem = $currentSelection
+    }
 }
 
 # --- Owner-Drawn Contacts List Drawing Hook ---
