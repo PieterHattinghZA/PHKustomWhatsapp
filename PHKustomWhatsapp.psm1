@@ -907,6 +907,56 @@ param(
 
 }
 
+function Start-FileDownload {
+    param(
+        [string]$Uri,
+        [string]$OutFile,
+        [string]$Description = "Downloading file"
+    )
+
+    $client = New-Object System.Net.Http.HttpClient
+    try {
+        $response = $client.GetAsync($Uri, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+        if (-not $response.IsSuccessStatusCode) {
+            throw "Failed to download ${Uri}: $($response.StatusCode) ($($response.ReasonPhrase))"
+        }
+
+        $totalBytes = $response.Content.Headers.ContentLength
+        if ($null -eq $totalBytes) {
+            $totalBytes = 0
+        }
+
+        $inputStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+        $outputStream = [System.IO.File]::Create($OutFile)
+        $buffer = New-Object byte[] 65536
+        $bytesRead = 0
+        $totalRead = 0
+
+        $localProgressPreference = if (Test-Path "variable:ProgressPreference") { $ProgressPreference } else { "Continue" }
+        $ProgressPreference = "Continue"
+
+        try {
+            while (($bytesRead = $inputStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $outputStream.Write($buffer, 0, $bytesRead)
+                $totalRead += $bytesRead
+                if ($totalBytes -gt 0) {
+                    $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
+                    Write-Progress -Activity $Description -Status "$percent% complete ($([Math]::Round($totalRead / 1MB, 2)) MB of $([Math]::Round($totalBytes / 1MB, 2)) MB)" -PercentComplete $percent
+                } else {
+                    Write-Progress -Activity $Description -Status "Downloaded $([Math]::Round($totalRead / 1MB, 2)) MB (unknown total size)"
+                }
+            }
+        } finally {
+            Write-Progress -Activity $Description -Completed
+            $ProgressPreference = $localProgressPreference
+            $outputStream.Dispose()
+            $inputStream.Dispose()
+        }
+    } finally {
+        $client.Dispose()
+    }
+}
+
 function Get-WhatsappFile {
 <#
     .SYNOPSIS
@@ -941,7 +991,7 @@ param(
 
     $response = Invoke-WhatsappApi -Endpoint "downloadFile" -Method "POST" -Body $body
     if ($response -and $response.downloadUrl) {
-        Invoke-WebRequest -Uri $response.downloadUrl -OutFile $SavePath -UseBasicParsing
+        Start-FileDownload -Uri $response.downloadUrl -OutFile $SavePath -Description "Downloading WhatsApp attachment"
         return $true
     } else {
         throw "Failed to retrieve download URL from Green API response: $($response | ConvertTo-Json -Depth 2 -Compress)"

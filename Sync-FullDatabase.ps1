@@ -29,11 +29,16 @@ foreach ($contact in $contacts) {
     }
 
     $count++
+    if ($chatId -eq '0@c.us') {
+        Write-Host "[$count/$($contacts.Count)] Skipping system channel: $chatName ($chatId)..." -ForegroundColor Gray
+        continue
+    }
+
     Write-Host "[$count/$($contacts.Count)] Syncing target thread: $chatName ($chatId)..." -ForegroundColor Yellow
 
     try {
         # Fetch deep history log from cloud container node
-        $cloudHistory = Get-ChatHistory -ChatId $chatId -Count 100
+        $cloudHistory = Get-ChatHistory -ChatId $chatId -Count 100 -ErrorAction Stop
         
         if ($cloudHistory) {
             $sortedCloud = $cloudHistory | Sort-Object timestamp
