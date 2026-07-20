@@ -74,6 +74,18 @@ function Initialize-WhatsappDataDirectory {
     Protect-WhatsappPath -Path $script:ConfigDir
 }
 
+function ConvertTo-WhatsappSecureString {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$PlainText)
+
+    $secureString = New-Object Security.SecureString
+    foreach ($character in $PlainText.ToCharArray()) {
+        $secureString.AppendChar($character)
+    }
+    $secureString.MakeReadOnly()
+    return $secureString
+}
+
 function ConvertTo-PlainText {
     param([Parameter(Mandatory = $true)][Security.SecureString]$SecureString)
 
@@ -169,7 +181,7 @@ function Get-WhatsappConfig {
         }
         elseif ($config.apiTokenInstance) {
             $global:Token = [string]$config.apiTokenInstance
-            $secureToken = ConvertTo-SecureString -String $global:Token -AsPlainText -Force
+            $secureToken = ConvertTo-WhatsappSecureString -PlainText $global:Token
             Save-WhatsappProtectedToken -InstanceId $global:InstanceId -SecureToken $secureToken -ApiUrl ([string]$config.apiUrl)
             Write-Warning 'The legacy plaintext API token was migrated to DPAPI protection.'
             Write-WhatsappLog -Level WARN -Message 'Migrated a legacy plaintext API token to DPAPI protection.'

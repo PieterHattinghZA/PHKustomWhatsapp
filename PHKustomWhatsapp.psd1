@@ -1,6 +1,6 @@
 @{
     RootModule        = 'PHKustomWhatsapp.psm1'
-    ModuleVersion     = '4.0.0'
+    ModuleVersion     = '4.1.0'
     GUID              = 'd2e7a1b2-8c4e-4e2a-9b7a-1a2b3c4d5e6f'
     Author            = 'Pieter Hattingh'
     CompanyName       = 'PHKustom'
@@ -12,8 +12,9 @@
         'New-WhatsappConfigFile','Get-WhatsappConfig','Clear-WhatsappLocalData',
         'Send-Whatsapp','Send-WhatsappFileByUpload','Send-WhatsappFileByUrl',
         'Send-WhatsappLocation','Send-WhatsappContact','Get-LastIncomingMessages',
-        'Get-LastOutgoingMessages','Get-ChatHistory','Set-ChatRead','Get-WhatsappFile',
-        'Get-WhatsappChats','Get-Contacts','Test-WhatsappAvailability',
+        'Get-LastOutgoingMessages','Get-ChatHistory','Export-WhatsappChat',
+        'Save-WhatsappChatMedia','Set-ChatRead','Get-WhatsappFile',
+        'Get-WhatsappChats','Get-WhatsappContactInfo','Get-Contacts','Test-WhatsappAvailability',
         'Get-WhatsappInstanceStatus','Get-WhatsappMessageStatus',
         'Receive-WhatsappNotification','Remove-WhatsappNotification',
         'Get-WhatsappSettings','Set-WhatsappSettings','Get-WhatsappInstanceState',
@@ -39,7 +40,7 @@
             Tags         = @('GreenAPI','Messaging','Automation','PowerShell','WindowsForms')
             LicenseUri   = 'https://github.com/PieterHattinghZA/PHKustomWhatsapp/blob/main/LICENSE.md'
             ProjectUri   = 'https://github.com/PieterHattinghZA/PHKustomWhatsapp'
-            ReleaseNotes = '4.0.0: protected credentials, secured local data, resilient API client, active-chat GUI, media support, tests and CI.'
+            ReleaseNotes = '4.1.0: Blikbrein Pyn branding, live contact avatars, selected-chat CSV export and complete media export.'
         }
     }
 }

@@ -1,5 +1,20 @@
 # Changelog
 
+## 4.1.0 - 20/07/2026
+
+### Added
+
+- Blikbrein Pyn application icon and in-client branding.
+- Cached Green API contact avatars in the chat list and selected-chat header.
+- Selected-chat UTF-8 CSV export.
+- Bulk download of all available chat images, videos, documents, audio and stickers.
+- GUI buttons for CSV and media export.
+
+### Changed
+
+- Installer now deploys the required branding assets.
+- Contact list uses owner-drawn rows with circular avatars and initials fallback.
+
 ## 4.0.0 - 20/07/2026
 
 ### Added
