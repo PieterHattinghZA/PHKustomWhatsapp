@@ -140,7 +140,13 @@ function Get-MediaExtension {
         '^image/gif' { return '.gif' }
         '^image/webp' { return '.webp' }
         '^video/mp4' { return '.mp4' }
-        '^video/' { return '.video' }
+        '^video/quicktime' { return '.mov' }
+        '^video/x-msvideo' { return '.avi' }
+        '^video/x-matroska' { return '.mkv' }
+        '^video/webm' { return '.webm' }
+        '^video/3gpp' { return '.3gp' }
+        '^video/3gpp2' { return '.3g2' }
+        '^video/' { return $DefaultExtension }
         default { return $DefaultExtension }
     }
 }
