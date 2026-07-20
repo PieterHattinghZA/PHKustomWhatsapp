@@ -63,6 +63,37 @@ Describe 'PowerShell syntax' {
     }
 }
 
+Describe 'GUI regression checks' {
+    BeforeAll {
+        $script:GuiSource = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot 'simple-gui.ps1') -Raw
+        $script:ModuleSource = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot 'PHKustomWhatsapp.psm1') -Raw
+    }
+
+    It 'retains active-chat, avatar, CSV and media wiring' {
+        $script:GuiSource | Should -Match 'Get-WhatsappChats'
+        $script:GuiSource | Should -Match 'Get-WhatsappContactInfo'
+        $script:GuiSource | Should -Match 'Export-WhatsappChat'
+        $script:GuiSource | Should -Match 'Save-WhatsappChatMedia'
+    }
+
+    It 'keeps helper definitions and calls aligned after refactoring' {
+        $script:GuiSource | Should -Match 'function\s+Get-Initial\b'
+        $script:GuiSource | Should -Not -Match '\bGet-Initials\b'
+        $script:GuiSource | Should -Match 'function\s+Clear-RenderedImage\b'
+        $script:GuiSource | Should -Not -Match '\bClear-RenderedImages\b'
+        $script:GuiSource | Should -Match 'function\s+Update-ActiveChat\b'
+        $script:GuiSource | Should -Not -Match '\bRefresh-ActiveChats\b'
+    }
+
+    It 'preserves recognized extensions for supported video formats' {
+        foreach ($extension in @('.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp', '.3g2')) {
+            $script:GuiSource | Should -Match ([regex]::Escape("return '$extension'"))
+            $script:ModuleSource | Should -Match ([regex]::Escape("extension = '$extension'"))
+        }
+        $script:GuiSource | Should -Not -Match "return '\.video'"
+    }
+}
+
 Describe 'Security regression checks' {
     It 'does not contain the previously published instance or telephone identifiers' {
         $source = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot 'PHKustomWhatsapp.psm1') -Raw
