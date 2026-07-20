@@ -85,7 +85,9 @@ function Clear-WhatsappFunctions {
         'Send-WhatsappVoiceStatus',
         'Send-WhatsappMediaStatus',
         'Get-LocalChatHistory',
-        'Save-LocalChatMessage'
+        'Save-LocalChatMessage',
+        'Get-WhatsappContactInfo',
+        'Get-WhatsappChats'
     )
     foreach ($fn in $functionNames) {
         if (Get-Command $fn -ErrorAction SilentlyContinue) {
@@ -1013,6 +1015,41 @@ function Get-Contacts {
     return Invoke-WhatsappApi -Endpoint "getContacts" -Method "GET"
 
 }
+
+function Get-WhatsappContactInfo {
+<#
+    .SYNOPSIS
+    Retrieves detailed information about a specific WhatsApp contact.
+    .DESCRIPTION
+    Uses Green API's getContactInfo endpoint.
+    Retrieves name, contact name, email, avatar URL, and actual phone number.
+    .PARAMETER ChatId
+    The contact ID (e.g. "27731234567@c.us" or "123456789@lid").
+    .EXAMPLE
+    Get-WhatsappContactInfo -ChatId "27731234567@c.us"
+    #>
+[CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ChatId
+    )
+
+    return Invoke-WhatsappApi -Endpoint "getContactInfo" -Method "POST" -Body @{ chatId = $ChatId }
+}
+
+function Get-WhatsappChats {
+<#
+    .SYNOPSIS
+    Retrieves the list of active chats for the instance.
+    .DESCRIPTION
+    Uses Green API's getChats endpoint.
+    Retrieves summaries of all dialogues associated with the instance.
+    .EXAMPLE
+    Get-WhatsappChats
+    #>
+    return Invoke-WhatsappApi -Endpoint "getChats" -Method "GET"
+}
+
 
 function Test-WhatsappAvailability {
 <#
@@ -2336,4 +2373,4 @@ function Save-LocalChatMessage {
 
 # Export only primary functions
 Export-ModuleMember -Function `
-    New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage
+    New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage,Get-WhatsappContactInfo,Get-WhatsappChats
