@@ -43,16 +43,23 @@ Describe 'Export commands' {
 }
 
 Describe 'PowerShell syntax' {
-    $files = Get-ChildItem -Path $script:RepositoryRoot -Recurse -File |
-        Where-Object { $_.Extension -in @('.ps1','.psm1','.psd1') }
-
-    foreach ($file in $files) {
-        It "parses $($file.FullName) without syntax errors" {
+    It 'parses every PowerShell file without syntax errors' {
+        $parseFailures = foreach ($file in (Get-ChildItem -Path $script:RepositoryRoot -Recurse -File |
+            Where-Object { $_.Extension -in @('.ps1','.psm1','.psd1') })) {
             $tokens = $null
-            $errors = $null
-            [Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors) | Out-Null
-            @($errors).Count | Should -Be 0
+            $parseErrors = $null
+            [Management.Automation.Language.Parser]::ParseFile(
+                $file.FullName,
+                [ref]$tokens,
+                [ref]$parseErrors
+            ) | Out-Null
+
+            foreach ($parseError in @($parseErrors)) {
+                '{0}: {1}' -f $file.FullName, $parseError.Message
+            }
         }
+
+        @($parseFailures) | Should -BeNullOrEmpty
     }
 }
 
