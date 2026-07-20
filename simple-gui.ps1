@@ -278,7 +278,7 @@ function Get-ContactAvatar {
     }
 }
 
-function Get-Initials {
+function Get-Initial {
     param([string]$Name)
     if ([string]::IsNullOrWhiteSpace($Name)) { return '?' }
     $parts = @($Name.Trim().Split(' ') | Where-Object { $_ })
@@ -760,34 +760,33 @@ function Show-SelectedChat {
 }
 
 $chatList.Add_DrawItem({
-        param($sender, $e)
-        if ($e.Index -lt 0 -or $e.Index -ge $chatList.Items.Count) { return }
-        $item = $chatList.Items[$e.Index]
-        $selected = (($e.State -band [Windows.Forms.DrawItemState]::Selected) -ne 0)
+        if ($_.Index -lt 0 -or $_.Index -ge $chatList.Items.Count) { return }
+        $item = $chatList.Items[$_.Index]
+        $selected = (($_.State -band [Windows.Forms.DrawItemState]::Selected) -ne 0)
         $background = if ($selected) { [Drawing.ColorTranslator]::FromHtml('#17453F') } else { $chatList.BackColor }
         $backgroundBrush = New-Object Drawing.SolidBrush($background)
-        $e.Graphics.FillRectangle($backgroundBrush, $e.Bounds)
+        $_.Graphics.FillRectangle($backgroundBrush, $_.Bounds)
         $backgroundBrush.Dispose()
 
-        $avatarRect = New-Object Drawing.Rectangle(($e.Bounds.X + 9), ($e.Bounds.Y + 9), 46, 46)
+        $avatarRect = New-Object Drawing.Rectangle(($_.Bounds.X + 9), ($_.Bounds.Y + 9), 46, 46)
         if ($item.Avatar) {
-            $state = $e.Graphics.Save()
+            $state = $_.Graphics.Save()
             $avatarPath = New-Object Drawing.Drawing2D.GraphicsPath
             $avatarPath.AddEllipse($avatarRect)
-            $e.Graphics.SetClip($avatarPath)
-            $e.Graphics.DrawImage($item.Avatar, $avatarRect)
-            $e.Graphics.Restore($state)
+            $_.Graphics.SetClip($avatarPath)
+            $_.Graphics.DrawImage($item.Avatar, $avatarRect)
+            $_.Graphics.Restore($state)
             $avatarPath.Dispose()
         }
         else {
             $avatarBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#2A7F76'))
-            $e.Graphics.FillEllipse($avatarBrush, $avatarRect)
+            $_.Graphics.FillEllipse($avatarBrush, $avatarRect)
             $avatarBrush.Dispose()
-            $initials = Get-Initials -Name $item.DisplayName
+            $initials = Get-Initial -Name $item.DisplayName
             $initialFont = New-Object Drawing.Font('Segoe UI', 11, [Drawing.FontStyle]::Bold)
             $initialBrush = New-Object Drawing.SolidBrush([Drawing.Color]::White)
-            $initialSize = $e.Graphics.MeasureString($initials, $initialFont)
-            $e.Graphics.DrawString($initials, $initialFont, $initialBrush, ($avatarRect.X + (($avatarRect.Width - $initialSize.Width) / 2)), ($avatarRect.Y + (($avatarRect.Height - $initialSize.Height) / 2)))
+            $initialSize = $_.Graphics.MeasureString($initials, $initialFont)
+            $_.Graphics.DrawString($initials, $initialFont, $initialBrush, ($avatarRect.X + (($avatarRect.Width - $initialSize.Width) / 2)), ($avatarRect.Y + (($avatarRect.Height - $initialSize.Height) / 2)))
             $initialFont.Dispose()
             $initialBrush.Dispose()
         }
@@ -796,8 +795,8 @@ $chatList.Add_DrawItem({
         $detailFont = New-Object Drawing.Font('Segoe UI', 8)
         $nameBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#E9EDEF'))
         $detailBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#8696A0'))
-        $e.Graphics.DrawString([string]$item.DisplayName, $nameFont, $nameBrush, ($e.Bounds.X + 64), ($e.Bounds.Y + 11))
-        $e.Graphics.DrawString([string]$item.ChatId, $detailFont, $detailBrush, ($e.Bounds.X + 64), ($e.Bounds.Y + 36))
+        $_.Graphics.DrawString([string]$item.DisplayName, $nameFont, $nameBrush, ($_.Bounds.X + 64), ($_.Bounds.Y + 11))
+        $_.Graphics.DrawString([string]$item.ChatId, $detailFont, $detailBrush, ($_.Bounds.X + 64), ($_.Bounds.Y + 36))
         $nameFont.Dispose()
         $detailFont.Dispose()
         $nameBrush.Dispose()
@@ -984,7 +983,7 @@ $form.Add_Resize({
 $form.Add_FormClosing({
         $timer.Stop()
         $avatarTimer.Stop()
-        Clear-RenderedImages
+        Clear-RenderedImage
         foreach ($avatar in $script:AvatarLookup.Values) { if ($avatar) { $avatar.Dispose() } }
         if ($brandPicture.Image) { $brandPicture.Image.Dispose() }
         if ($brandSplash.Image) { $brandSplash.Image.Dispose() }
