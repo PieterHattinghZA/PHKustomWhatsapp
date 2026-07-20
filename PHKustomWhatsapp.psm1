@@ -647,7 +647,8 @@ function Export-WhatsappChat {
     $history = @(Get-ChatHistory -ChatId $ChatId -Count $Count)
     $rows = foreach ($message in ($history | Sort-Object { [int64]$_.timestamp })) {
         $messageTime = $null
-        try { $messageTime = $epoch.AddSeconds([int64]$message.timestamp).ToLocalTime() } catch { }
+        try { $messageTime = $epoch.AddSeconds([int64]$message.timestamp).ToLocalTime() }
+        catch { Write-WhatsappLog -Level WARN -Message ('Invalid timestamp on message {0}: {1}' -f $message.idMessage, $_.Exception.Message) }
 
         [PSCustomObject][ordered]@{
             DateTime         = if ($messageTime) { $messageTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '' }
