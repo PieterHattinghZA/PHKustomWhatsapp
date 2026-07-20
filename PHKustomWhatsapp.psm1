@@ -12,7 +12,6 @@ Description: PowerShell module for WhatsApp messaging, media, status, and contac
 #>
 
 # --- Global Configuration Variables (Loaded from external file) ---
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '')]
 $global:InstanceId = $null
 $global:Token = $null
 $global:BaseUrl = $null
@@ -36,7 +35,6 @@ foreach ($privateFile in $privateFiles) {
 }
 Initialize-WhatsappDataDirectory
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Clear-WhatsappFunctions {
     <#
     .SYNOPSIS
@@ -530,7 +528,6 @@ function Send-WhatsappContact {
 
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-LastIncomingMessages {
     <#
     .SYNOPSIS
@@ -552,7 +549,6 @@ function Get-LastIncomingMessages {
 
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-LastOutgoingMessages {
     <#
     .SYNOPSIS
@@ -688,7 +684,6 @@ function Export-WhatsappChat {
     return Get-Item -LiteralPath $destination
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Save-WhatsappChatMedia {
     <#
     .SYNOPSIS
@@ -707,7 +702,7 @@ function Save-WhatsappChatMedia {
     Replaces existing files instead of skipping them.
 #>
     [CmdletBinding()]
-    [OutputType([PSCustomObject[]])]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$ChatId,
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$DestinationPath,
@@ -933,7 +928,6 @@ function Get-WhatsappFile {
 
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-WhatsappChats {
     <#
     .SYNOPSIS
@@ -977,7 +971,6 @@ function Get-WhatsappContactInfo {
     return Invoke-WhatsappApi -Endpoint "getContactInfo" -Body @{ chatId = $ChatId }
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-Contacts {
     <#
     .SYNOPSIS
@@ -1101,7 +1094,6 @@ function Remove-WhatsappNotification {
 
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-WhatsappSettings {
     <#
     .SYNOPSIS
@@ -1118,7 +1110,6 @@ function Get-WhatsappSettings {
 
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Set-WhatsappSettings {
     <#
     .SYNOPSIS
@@ -1331,7 +1322,6 @@ function Set-WhatsappProfilePicture {
     .SYNOPSIS
     Set the WhatsApp account's profile picture.
     .DESCRIPTION
-   
     This function allows setting the profile picture for the WhatsApp account linked
     to the Green API instance.
     .PARAMETER FilePath
@@ -1360,7 +1350,6 @@ function Set-WhatsappProfilePicture {
 
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '')]
 function Update-WhatsappApiToken {
     <#
     .SYNOPSIS
@@ -1518,7 +1507,6 @@ function Send-WhatsappForwardedMessage {
 
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Send-WhatsappInteractiveButtons {
     <#
     .SYNOPSIS
@@ -2266,7 +2254,7 @@ function Get-LocalChatHistory {
     try {
         $history = Get-Content -Path $dbPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
         if (-not $history) { return @() }
-        
+
         # Sort oldest to newest and return the requested count from the tail
         $sorted = $history | Sort-Object timestamp
         $selected = $sorted | Select-Object -Last $Count

@@ -3,6 +3,8 @@
     IncludeDefaultRules = $true
     ExcludeRules = @(
         'PSAvoidUsingWriteHost',
-        'PSUseShouldProcessForStateChangingFunctions'
+        'PSUseShouldProcessForStateChangingFunctions',
+        'PSAvoidGlobalVars',
+        'PSUseSingularNouns'
     )
 }
