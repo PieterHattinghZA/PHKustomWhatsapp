@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Installs PHKustomWhatsapp 4.0.0 for the current user or all users.
+    Installs PHKustomWhatsapp 4.1.0 for the current user or all users.
 
 .DESCRIPTION
     Copies the manifest, module, private implementation files and GUI to a
@@ -10,7 +10,7 @@
 .NOTES
     Author  : Pieter Hattingh
     Date    : 20/07/2026
-    Version : 4.0.0
+    Version : 4.1.0
 #>
 
 [CmdletBinding()]
@@ -21,7 +21,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $moduleName = 'PHKustomWhatsapp'
-$moduleVersion = '4.0.0'
+$moduleVersion = '4.1.0'
 
 if ($Scope -eq 'AllUsers') {
     $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -43,7 +43,10 @@ $requiredFiles = @(
     'PHKustomWhatsapp.psd1',
     'simple-gui.ps1',
     'Private\Configuration.ps1',
-    'Private\ApiClient.ps1'
+    'Private\ApiClient.ps1',
+    'assets\BlikbreinPyn-icon.png',
+    'assets\BlikbreinPyn.ico',
+    'assets\BlikbreinPyn-brand.png'
 )
 
 foreach ($relativePath in $requiredFiles) {
@@ -56,6 +59,7 @@ foreach ($relativePath in $requiredFiles) {
 try {
     New-Item -Path $destination -ItemType Directory -Force | Out-Null
     New-Item -Path (Join-Path $destination 'Private') -ItemType Directory -Force | Out-Null
+    New-Item -Path (Join-Path $destination 'assets') -ItemType Directory -Force | Out-Null
     foreach ($relativePath in $requiredFiles) {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $relativePath) -Destination (Join-Path $destination $relativePath) -Force
     }
