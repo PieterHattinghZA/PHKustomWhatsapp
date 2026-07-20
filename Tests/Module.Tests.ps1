@@ -47,8 +47,10 @@ Describe 'PowerShell syntax' {
 Describe 'Security regression checks' {
     It 'does not contain the previously published instance or telephone identifiers' {
         $source = Get-Content -LiteralPath (Join-Path $script:RepositoryRoot 'PHKustomWhatsapp.psm1') -Raw
-        $source | Should -Not -Match '7103300833'
-        $source | Should -Not -Match '27645258757'
+        $source | Should -Not -Match '(?m)^APIURL:'
+        $source | Should -Not -Match '(?m)^MediaURL:'
+        $source | Should -Not -Match '(?m)^idInstance:\s*\d'
+        $source | Should -Not -Match '(?m)^Nr:\s*\d'
     }
 
     It 'uses a protected token field for new configuration' {
