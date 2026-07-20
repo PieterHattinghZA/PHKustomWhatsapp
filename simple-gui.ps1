@@ -203,7 +203,15 @@ function Convert-Base64ToImage {
         $stream = New-Object System.IO.MemoryStream(, $bytes)
         try {
             $source = [System.Drawing.Image]::FromStream($stream)
-            return New-Object System.Drawing.Bitmap $source
+            $bitmap = New-Object System.Drawing.Bitmap($source.Width, $source.Height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+            $g = [System.Drawing.Graphics]::FromImage($bitmap)
+            try {
+                $g.DrawImage($source, 0, 0, $source.Width, $source.Height)
+            }
+            finally {
+                $g.Dispose()
+            }
+            return $bitmap
         }
         finally {
             if ($source) { $source.Dispose() }
@@ -219,14 +227,31 @@ function Convert-Base64ToImage {
 function Get-ImageFromFile {
     param([Parameter(Mandatory = $true)][string]$Path)
 
-    $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+
     try {
-        $source = [System.Drawing.Image]::FromStream($stream)
-        return New-Object System.Drawing.Bitmap $source
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        $stream = New-Object System.IO.MemoryStream(, $bytes)
+        try {
+            $source = [System.Drawing.Image]::FromStream($stream)
+            $bitmap = New-Object System.Drawing.Bitmap($source.Width, $source.Height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+            $g = [System.Drawing.Graphics]::FromImage($bitmap)
+            try {
+                $g.DrawImage($source, 0, 0, $source.Width, $source.Height)
+            }
+            finally {
+                $g.Dispose()
+            }
+            return $bitmap
+        }
+        finally {
+            if ($source) { $source.Dispose() }
+            $stream.Dispose()
+        }
     }
-    finally {
-        if ($source) { $source.Dispose() }
-        $stream.Dispose()
+    catch {
+        Write-GuiLog -Level WARN -Message ('Could not load image from {0}: {1}' -f $Path, $_.Exception.Message)
+        return $null
     }
 }
 
@@ -311,9 +336,9 @@ $split.Dock = 'Fill'
 $split.Orientation = [System.Windows.Forms.Orientation]::Vertical
 $split.SplitterWidth = 4
 $split.FixedPanel = [System.Windows.Forms.FixedPanel]::None
-$split.Panel1MinSize = 180
-$split.Panel2MinSize = 500
 $form.Controls.Add($split)
+$split.Panel1MinSize = 180
+$split.Panel2MinSize = 350
 
 $leftHeader = New-Object System.Windows.Forms.Panel
 $leftHeader.Dock = 'Top'
@@ -775,16 +800,24 @@ $chatList.Add_DrawItem({
         $backgroundBrush.Dispose()
 
         $avatarRect = New-Object Drawing.Rectangle(($_.Bounds.X + 9), ($_.Bounds.Y + 9), 46, 46)
+        $drawnAvatar = $false
         if ($item.Avatar) {
-            $state = $_.Graphics.Save()
-            $avatarPath = New-Object Drawing.Drawing2D.GraphicsPath
-            $avatarPath.AddEllipse($avatarRect)
-            $_.Graphics.SetClip($avatarPath)
-            $_.Graphics.DrawImage($item.Avatar, $avatarRect)
-            $_.Graphics.Restore($state)
-            $avatarPath.Dispose()
+            try {
+                $state = $_.Graphics.Save()
+                $avatarPath = New-Object Drawing.Drawing2D.GraphicsPath
+                $avatarPath.AddEllipse($avatarRect)
+                $_.Graphics.SetClip($avatarPath)
+                $_.Graphics.DrawImage($item.Avatar, $avatarRect)
+                $_.Graphics.Restore($state)
+                $avatarPath.Dispose()
+                $drawnAvatar = $true
+            }
+            catch {
+                $drawnAvatar = $false
+            }
         }
-        else {
+
+        if (-not $drawnAvatar) {
             $avatarBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#2A7F76'))
             $_.Graphics.FillEllipse($avatarBrush, $avatarRect)
             $avatarBrush.Dispose()
