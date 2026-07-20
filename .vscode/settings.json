@@ -6,5 +6,6 @@
     "editor.defaultFormatter": "sindujaramaraj.app-developer-copilot",
     "[powershell]": {
         "editor.defaultFormatter": "ms-vscode.powershell"
-    }
+    },
+    "postman.account.region": "EU"
 }

@@ -29,6 +29,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$script:ChatCount = $ChatCount
+$script:MessageCount = $MessageCount
+$script:MediaRetentionDays = $MediaRetentionDays
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -132,12 +136,12 @@ function Get-MediaExtension {
 
     switch -Regex ([string]$Message.mimeType) {
         '^image/jpeg' { return '.jpg' }
-        '^image/png'  { return '.png' }
-        '^image/gif'  { return '.gif' }
+        '^image/png' { return '.png' }
+        '^image/gif' { return '.gif' }
         '^image/webp' { return '.webp' }
-        '^video/mp4'  { return '.mp4' }
-        '^video/'     { return '.video' }
-        default       { return $DefaultExtension }
+        '^video/mp4' { return '.mp4' }
+        '^video/' { return '.video' }
+        default { return $DefaultExtension }
     }
 }
 
@@ -190,7 +194,7 @@ function Convert-Base64ToImage {
 
     try {
         $bytes = [Convert]::FromBase64String($Base64)
-        $stream = New-Object System.IO.MemoryStream(,$bytes)
+        $stream = New-Object System.IO.MemoryStream(, $bytes)
         try {
             $source = [System.Drawing.Image]::FromStream($stream)
             return New-Object System.Drawing.Bitmap $source
@@ -220,7 +224,7 @@ function Get-ImageFromFile {
     }
 }
 
-function Clear-RenderedImages {
+function Clear-RenderedImage {
     foreach ($image in @($script:ImageObjects)) {
         if ($image) { $image.Dispose() }
     }
@@ -502,7 +506,7 @@ function Update-ChatListFilter {
     }
 }
 
-function Refresh-ActiveChats {
+function Update-ActiveChat {
     param([switch]$Quiet)
 
     if ($script:IsBusy) { return }
@@ -517,7 +521,7 @@ function Refresh-ActiveChats {
         }
 
         if (-not $Quiet) { Set-Status 'Retrieving active chats...' }
-        $chats = @(Get-WhatsappChats -Count $ChatCount)
+        $chats = @(Get-WhatsappChats -Count $script:ChatCount)
         $items = New-Object System.Collections.ArrayList
         foreach ($chat in $chats) {
             if (-not $chat.id) { continue }
@@ -595,11 +599,10 @@ function Add-ImageContent {
         $picture.Cursor = [System.Windows.Forms.Cursors]::Hand
         $picture.Tag = $path
         $picture.Add_DoubleClick({
-            param($sender, $eventArgs)
-            if ($sender.Tag -and (Test-Path -LiteralPath ([string]$sender.Tag))) {
-                Start-Process -FilePath ([string]$sender.Tag)
-            }
-        })
+                if ($this.Tag -and (Test-Path -LiteralPath ([string]$this.Tag))) {
+                    Start-Process -FilePath ([string]$this.Tag)
+                }
+            })
         $Parent.Controls.Add($picture)
     }
     catch {
@@ -636,26 +639,25 @@ function Add-VideoContent {
         Path = Get-MediaCachePath -Message $Message -DefaultExtension '.mp4'
     }
     $button.Add_Click({
-        param($sender, $eventArgs)
-        try {
-            $media = $sender.Tag
-            if (-not $media.Url) { throw 'The API did not return a video download URL.' }
-            $sender.Enabled = $false
-            $sender.Text = 'Downloading video...'
-            [System.Windows.Forms.Application]::DoEvents()
-            Save-UrlToFile -Url $media.Url -Path $media.Path | Out-Null
-            Start-Process -FilePath $media.Path
-            $sender.Text = 'Play video'
-        }
-        catch {
-            [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Video error', 'OK', 'Error') | Out-Null
-            Write-GuiLog -Level ERROR -Message ('Video open failed: {0}' -f $_.Exception.ToString())
-            $sender.Text = 'Download and play video'
-        }
-        finally {
-            $sender.Enabled = $true
-        }
-    })
+            try {
+                $media = $this.Tag
+                if (-not $media.Url) { throw 'The API did not return a video download URL.' }
+                $this.Enabled = $false
+                $this.Text = 'Downloading video...'
+                [System.Windows.Forms.Application]::DoEvents()
+                Save-UrlToFile -Url $media.Url -Path $media.Path | Out-Null
+                Start-Process -FilePath $media.Path
+                $this.Text = 'Play video'
+            }
+            catch {
+                [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Video error', 'OK', 'Error') | Out-Null
+                Write-GuiLog -Level ERROR -Message ('Video open failed: {0}' -f $_.Exception.ToString())
+                $this.Text = 'Download and play video'
+            }
+            finally {
+                $this.Enabled = $true
+            }
+        })
     $Parent.Controls.Add($button)
 }
 
@@ -729,8 +731,8 @@ function Show-SelectedChat {
     Set-Busy $true
     try {
         if (-not $Quiet) { Set-Status ('Loading chat with {0}...' -f $script:ActiveChatName) }
-        $history = @(Get-ChatHistory -ChatId $script:ActiveChatId -Count $MessageCount)
-        Clear-RenderedImages
+        $history = @(Get-ChatHistory -ChatId $script:ActiveChatId -Count $script:MessageCount)
+        Clear-RenderedImage
         $conversation.SuspendLayout()
         try {
             $conversation.Controls.Clear()
@@ -758,63 +760,63 @@ function Show-SelectedChat {
 }
 
 $chatList.Add_DrawItem({
-    param($sender, $e)
-    if ($e.Index -lt 0 -or $e.Index -ge $chatList.Items.Count) { return }
-    $item = $chatList.Items[$e.Index]
-    $selected = (($e.State -band [Windows.Forms.DrawItemState]::Selected) -ne 0)
-    $background = if ($selected) { [Drawing.ColorTranslator]::FromHtml('#17453F') } else { $chatList.BackColor }
-    $backgroundBrush = New-Object Drawing.SolidBrush($background)
-    $e.Graphics.FillRectangle($backgroundBrush, $e.Bounds)
-    $backgroundBrush.Dispose()
+        param($sender, $e)
+        if ($e.Index -lt 0 -or $e.Index -ge $chatList.Items.Count) { return }
+        $item = $chatList.Items[$e.Index]
+        $selected = (($e.State -band [Windows.Forms.DrawItemState]::Selected) -ne 0)
+        $background = if ($selected) { [Drawing.ColorTranslator]::FromHtml('#17453F') } else { $chatList.BackColor }
+        $backgroundBrush = New-Object Drawing.SolidBrush($background)
+        $e.Graphics.FillRectangle($backgroundBrush, $e.Bounds)
+        $backgroundBrush.Dispose()
 
-    $avatarRect = New-Object Drawing.Rectangle(($e.Bounds.X + 9), ($e.Bounds.Y + 9), 46, 46)
-    if ($item.Avatar) {
-        $state = $e.Graphics.Save()
-        $avatarPath = New-Object Drawing.Drawing2D.GraphicsPath
-        $avatarPath.AddEllipse($avatarRect)
-        $e.Graphics.SetClip($avatarPath)
-        $e.Graphics.DrawImage($item.Avatar, $avatarRect)
-        $e.Graphics.Restore($state)
-        $avatarPath.Dispose()
-    }
-    else {
-        $avatarBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#2A7F76'))
-        $e.Graphics.FillEllipse($avatarBrush, $avatarRect)
-        $avatarBrush.Dispose()
-        $initials = Get-Initials -Name $item.DisplayName
-        $initialFont = New-Object Drawing.Font('Segoe UI', 11, [Drawing.FontStyle]::Bold)
-        $initialBrush = New-Object Drawing.SolidBrush([Drawing.Color]::White)
-        $initialSize = $e.Graphics.MeasureString($initials, $initialFont)
-        $e.Graphics.DrawString($initials, $initialFont, $initialBrush, ($avatarRect.X + (($avatarRect.Width - $initialSize.Width) / 2)), ($avatarRect.Y + (($avatarRect.Height - $initialSize.Height) / 2)))
-        $initialFont.Dispose()
-        $initialBrush.Dispose()
-    }
+        $avatarRect = New-Object Drawing.Rectangle(($e.Bounds.X + 9), ($e.Bounds.Y + 9), 46, 46)
+        if ($item.Avatar) {
+            $state = $e.Graphics.Save()
+            $avatarPath = New-Object Drawing.Drawing2D.GraphicsPath
+            $avatarPath.AddEllipse($avatarRect)
+            $e.Graphics.SetClip($avatarPath)
+            $e.Graphics.DrawImage($item.Avatar, $avatarRect)
+            $e.Graphics.Restore($state)
+            $avatarPath.Dispose()
+        }
+        else {
+            $avatarBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#2A7F76'))
+            $e.Graphics.FillEllipse($avatarBrush, $avatarRect)
+            $avatarBrush.Dispose()
+            $initials = Get-Initials -Name $item.DisplayName
+            $initialFont = New-Object Drawing.Font('Segoe UI', 11, [Drawing.FontStyle]::Bold)
+            $initialBrush = New-Object Drawing.SolidBrush([Drawing.Color]::White)
+            $initialSize = $e.Graphics.MeasureString($initials, $initialFont)
+            $e.Graphics.DrawString($initials, $initialFont, $initialBrush, ($avatarRect.X + (($avatarRect.Width - $initialSize.Width) / 2)), ($avatarRect.Y + (($avatarRect.Height - $initialSize.Height) / 2)))
+            $initialFont.Dispose()
+            $initialBrush.Dispose()
+        }
 
-    $nameFont = New-Object Drawing.Font('Segoe UI', 10, [Drawing.FontStyle]::Bold)
-    $detailFont = New-Object Drawing.Font('Segoe UI', 8)
-    $nameBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#E9EDEF'))
-    $detailBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#8696A0'))
-    $e.Graphics.DrawString([string]$item.DisplayName, $nameFont, $nameBrush, ($e.Bounds.X + 64), ($e.Bounds.Y + 11))
-    $e.Graphics.DrawString([string]$item.ChatId, $detailFont, $detailBrush, ($e.Bounds.X + 64), ($e.Bounds.Y + 36))
-    $nameFont.Dispose()
-    $detailFont.Dispose()
-    $nameBrush.Dispose()
-    $detailBrush.Dispose()
-})
+        $nameFont = New-Object Drawing.Font('Segoe UI', 10, [Drawing.FontStyle]::Bold)
+        $detailFont = New-Object Drawing.Font('Segoe UI', 8)
+        $nameBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#E9EDEF'))
+        $detailBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#8696A0'))
+        $e.Graphics.DrawString([string]$item.DisplayName, $nameFont, $nameBrush, ($e.Bounds.X + 64), ($e.Bounds.Y + 11))
+        $e.Graphics.DrawString([string]$item.ChatId, $detailFont, $detailBrush, ($e.Bounds.X + 64), ($e.Bounds.Y + 36))
+        $nameFont.Dispose()
+        $detailFont.Dispose()
+        $nameBrush.Dispose()
+        $detailBrush.Dispose()
+    })
 
 $chatList.Add_SelectedIndexChanged({
-    if ($script:IsBusy -or -not $chatList.SelectedItem) { return }
-    $selected = $chatList.SelectedItem
-    $script:ActiveChatId = [string]$selected.ChatId
-    $script:ActiveChatName = [string]$selected.DisplayName
-    $contactLabel.Text = $script:ActiveChatName
-    $chatIdLabel.Text = $script:ActiveChatId
-    $selectedAvatar.Image = $selected.Avatar
-    Show-SelectedChat
-})
+        if ($script:IsBusy -or -not $chatList.SelectedItem) { return }
+        $selected = $chatList.SelectedItem
+        $script:ActiveChatId = [string]$selected.ChatId
+        $script:ActiveChatName = [string]$selected.DisplayName
+        $contactLabel.Text = $script:ActiveChatName
+        $chatIdLabel.Text = $script:ActiveChatId
+        $selectedAvatar.Image = $selected.Avatar
+        Show-SelectedChat
+    })
 
 $searchBox.Add_TextChanged({ Update-ChatListFilter })
-$refreshButton.Add_Click({ Refresh-ActiveChats })
+$refreshButton.Add_Click({ Update-ActiveChat })
 
 $sendAction = {
     if ($script:IsBusy -or -not $script:ActiveChatId) { return }
@@ -841,152 +843,152 @@ $sendAction = {
 
 $sendButton.Add_Click($sendAction)
 $messageBox.Add_KeyDown({
-    if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter -and -not $_.Shift) {
-        $_.SuppressKeyPress = $true
-        & $sendAction
-    }
-})
+        if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter -and -not $_.Shift) {
+            $_.SuppressKeyPress = $true
+            & $sendAction
+        }
+    })
 
 $attachButton.Add_Click({
-    if (-not $script:ActiveChatId -or $script:IsBusy) { return }
+        if (-not $script:ActiveChatId -or $script:IsBusy) { return }
 
-    $dialog = New-Object System.Windows.Forms.OpenFileDialog
-    $dialog.Title = 'Select an image or video'
-    $dialog.Filter = 'Supported media|*.jpg;*.jpeg;*.png;*.gif;*.webp;*.mp4;*.mov;*.avi;*.mkv;*.webm|Images|*.jpg;*.jpeg;*.png;*.gif;*.webp|Videos|*.mp4;*.mov;*.avi;*.mkv;*.webm|All files|*.*'
-    if ($dialog.ShowDialog($form) -ne [System.Windows.Forms.DialogResult]::OK) {
+        $dialog = New-Object System.Windows.Forms.OpenFileDialog
+        $dialog.Title = 'Select an image or video'
+        $dialog.Filter = 'Supported media|*.jpg;*.jpeg;*.png;*.gif;*.webp;*.mp4;*.mov;*.avi;*.mkv;*.webm|Images|*.jpg;*.jpeg;*.png;*.gif;*.webp|Videos|*.mp4;*.mov;*.avi;*.mkv;*.webm|All files|*.*'
+        if ($dialog.ShowDialog($form) -ne [System.Windows.Forms.DialogResult]::OK) {
+            $dialog.Dispose()
+            return
+        }
+
+        $path = $dialog.FileName
         $dialog.Dispose()
-        return
-    }
+        $caption = $messageBox.Text.Trim()
 
-    $path = $dialog.FileName
-    $dialog.Dispose()
-    $caption = $messageBox.Text.Trim()
-
-    Set-Busy $true
-    try {
-        Set-Status ('Uploading {0}...' -f [System.IO.Path]::GetFileName($path))
-        $result = Send-WhatsappFileByUpload -ChatId $script:ActiveChatId -FilePath $path -Caption $caption
-        if (-not $result -or -not $result.idMessage) { throw 'Green API did not confirm the uploaded media message.' }
-        $messageBox.Clear()
-        Set-Busy $false
-        Show-SelectedChat
-    }
-    catch {
-        Write-GuiLog -Level ERROR -Message ('Media upload failed: {0}' -f $_.Exception.ToString())
-        Set-Status -IsError $true -Text ('Media upload failed: {0}' -f $_.Exception.Message)
-    }
-    finally {
-        Set-Busy $false
-    }
-})
+        Set-Busy $true
+        try {
+            Set-Status ('Uploading {0}...' -f [System.IO.Path]::GetFileName($path))
+            $result = Send-WhatsappFileByUpload -ChatId $script:ActiveChatId -FilePath $path -Caption $caption
+            if (-not $result -or -not $result.idMessage) { throw 'Green API did not confirm the uploaded media message.' }
+            $messageBox.Clear()
+            Set-Busy $false
+            Show-SelectedChat
+        }
+        catch {
+            Write-GuiLog -Level ERROR -Message ('Media upload failed: {0}' -f $_.Exception.ToString())
+            Set-Status -IsError $true -Text ('Media upload failed: {0}' -f $_.Exception.Message)
+        }
+        finally {
+            Set-Busy $false
+        }
+    })
 
 $exportCsvButton.Add_Click({
-    if (-not $script:ActiveChatId -or $script:IsBusy) { return }
-    $dialog = New-Object Windows.Forms.SaveFileDialog
-    $safeName = Get-SafeFileName -Value $script:ActiveChatName -Fallback 'chat'
-    $dialog.Title = 'Export selected chat to CSV'
-    $dialog.Filter = 'CSV files|*.csv'
-    $dialog.FileName = '{0}_{1}.csv' -f $safeName, (Get-Date -Format 'yyyyMMdd_HHmmss')
-    if ($dialog.ShowDialog($form) -ne [Windows.Forms.DialogResult]::OK) { $dialog.Dispose(); return }
-    $path = $dialog.FileName
-    $dialog.Dispose()
-    Set-Busy $true
-    try {
-        Set-Status 'Exporting chat to CSV...'
-        $file = Export-WhatsappChat -ChatId $script:ActiveChatId -Path $path -Count 10000
-        Set-Status ('Chat exported to {0}' -f $file.FullName)
-        $message = 'Chat exported successfully:' + [Environment]::NewLine + $file.FullName
-        [Windows.Forms.MessageBox]::Show($message, 'Export complete', 'OK', 'Information') | Out-Null
-    }
-    catch {
-        Write-GuiLog -Level ERROR -Message ('CSV export failed: {0}' -f $_.Exception.ToString())
-        Set-Status -IsError $true -Text ('CSV export failed: {0}' -f $_.Exception.Message)
-    }
-    finally { Set-Busy $false }
-})
+        if (-not $script:ActiveChatId -or $script:IsBusy) { return }
+        $dialog = New-Object Windows.Forms.SaveFileDialog
+        $safeName = Get-SafeFileName -Value $script:ActiveChatName -Fallback 'chat'
+        $dialog.Title = 'Export selected chat to CSV'
+        $dialog.Filter = 'CSV files|*.csv'
+        $dialog.FileName = '{0}_{1}.csv' -f $safeName, (Get-Date -Format 'yyyyMMdd_HHmmss')
+        if ($dialog.ShowDialog($form) -ne [Windows.Forms.DialogResult]::OK) { $dialog.Dispose(); return }
+        $path = $dialog.FileName
+        $dialog.Dispose()
+        Set-Busy $true
+        try {
+            Set-Status 'Exporting chat to CSV...'
+            $file = Export-WhatsappChat -ChatId $script:ActiveChatId -Path $path -Count 10000
+            Set-Status ('Chat exported to {0}' -f $file.FullName)
+            $message = 'Chat exported successfully:' + [Environment]::NewLine + $file.FullName
+            [Windows.Forms.MessageBox]::Show($message, 'Export complete', 'OK', 'Information') | Out-Null
+        }
+        catch {
+            Write-GuiLog -Level ERROR -Message ('CSV export failed: {0}' -f $_.Exception.ToString())
+            Set-Status -IsError $true -Text ('CSV export failed: {0}' -f $_.Exception.Message)
+        }
+        finally { Set-Busy $false }
+    })
 
 $saveMediaButton.Add_Click({
-    if (-not $script:ActiveChatId -or $script:IsBusy) { return }
-    $dialog = New-Object Windows.Forms.FolderBrowserDialog
-    $dialog.Description = 'Select a folder for all media from this chat'
-    if ($dialog.ShowDialog($form) -ne [Windows.Forms.DialogResult]::OK) { $dialog.Dispose(); return }
-    $safeName = Get-SafeFileName -Value $script:ActiveChatName -Fallback 'chat'
-    $destination = Join-Path $dialog.SelectedPath ('{0}_media_{1}' -f $safeName, (Get-Date -Format 'yyyyMMdd_HHmmss'))
-    $dialog.Dispose()
-    Set-Busy $true
-    try {
-        Set-Status 'Downloading all available chat media...'
-        $results = @(Save-WhatsappChatMedia -ChatId $script:ActiveChatId -DestinationPath $destination -Count 10000)
-        $downloaded = @($results | Where-Object { $_.Status -eq 'Downloaded' }).Count
-        $failed = @($results | Where-Object { $_.Status -eq 'Failed' }).Count
-        Set-Status ('Media export complete: {0} downloaded, {1} failed.' -f $downloaded, $failed)
-        $message = 'Media folder:' + [Environment]::NewLine + $destination + [Environment]::NewLine + [Environment]::NewLine + ('Downloaded: {0}' -f $downloaded) + [Environment]::NewLine + ('Failed: {0}' -f $failed)
-        [Windows.Forms.MessageBox]::Show($message, 'Media export complete', 'OK', 'Information') | Out-Null
-    }
-    catch {
-        Write-GuiLog -Level ERROR -Message ('Media export failed: {0}' -f $_.Exception.ToString())
-        Set-Status -IsError $true -Text ('Media export failed: {0}' -f $_.Exception.Message)
-    }
-    finally { Set-Busy $false }
-})
+        if (-not $script:ActiveChatId -or $script:IsBusy) { return }
+        $dialog = New-Object Windows.Forms.FolderBrowserDialog
+        $dialog.Description = 'Select a folder for all media from this chat'
+        if ($dialog.ShowDialog($form) -ne [Windows.Forms.DialogResult]::OK) { $dialog.Dispose(); return }
+        $safeName = Get-SafeFileName -Value $script:ActiveChatName -Fallback 'chat'
+        $destination = Join-Path $dialog.SelectedPath ('{0}_media_{1}' -f $safeName, (Get-Date -Format 'yyyyMMdd_HHmmss'))
+        $dialog.Dispose()
+        Set-Busy $true
+        try {
+            Set-Status 'Downloading all available chat media...'
+            $results = @(Save-WhatsappChatMedia -ChatId $script:ActiveChatId -DestinationPath $destination -Count 10000)
+            $downloaded = @($results | Where-Object { $_.Status -eq 'Downloaded' }).Count
+            $failed = @($results | Where-Object { $_.Status -eq 'Failed' }).Count
+            Set-Status ('Media export complete: {0} downloaded, {1} failed.' -f $downloaded, $failed)
+            $message = 'Media folder:' + [Environment]::NewLine + $destination + [Environment]::NewLine + [Environment]::NewLine + ('Downloaded: {0}' -f $downloaded) + [Environment]::NewLine + ('Failed: {0}' -f $failed)
+            [Windows.Forms.MessageBox]::Show($message, 'Media export complete', 'OK', 'Information') | Out-Null
+        }
+        catch {
+            Write-GuiLog -Level ERROR -Message ('Media export failed: {0}' -f $_.Exception.ToString())
+            Set-Status -IsError $true -Text ('Media export failed: {0}' -f $_.Exception.Message)
+        }
+        finally { Set-Busy $false }
+    })
 
 $avatarTimer = New-Object System.Windows.Forms.Timer
 $avatarTimer.Interval = 350
 $avatarTimer.Add_Tick({
-    if ($script:IsBusy -or $script:AvatarQueue.Count -eq 0) { return }
-    $chatId = [string]$script:AvatarQueue.Dequeue()
-    $avatar = Get-ContactAvatar -ChatId $chatId
-    foreach ($item in $script:ChatItems) { if ($item.ChatId -eq $chatId) { $item.Avatar = $avatar } }
-    if ($script:ActiveChatId -eq $chatId) { $selectedAvatar.Image = $avatar }
-    $chatList.Invalidate()
-})
+        if ($script:IsBusy -or $script:AvatarQueue.Count -eq 0) { return }
+        $chatId = [string]$script:AvatarQueue.Dequeue()
+        $avatar = Get-ContactAvatar -ChatId $chatId
+        foreach ($item in $script:ChatItems) { if ($item.ChatId -eq $chatId) { $item.Avatar = $avatar } }
+        if ($script:ActiveChatId -eq $chatId) { $selectedAvatar.Image = $avatar }
+        $chatList.Invalidate()
+    })
 
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 15000
 $timer.Add_Tick({
-    if ($script:IsBusy) { return }
-    if ($script:ActiveChatId) { Show-SelectedChat -Quiet }
-    if (((Get-Date) - $script:LastChatRefresh).TotalSeconds -ge 60) { Refresh-ActiveChats -Quiet }
-})
+        if ($script:IsBusy) { return }
+        if ($script:ActiveChatId) { Show-SelectedChat -Quiet }
+        if (((Get-Date) - $script:LastChatRefresh).TotalSeconds -ge 60) { Update-ActiveChat -Quiet }
+    })
 
 $form.Add_Shown({
-    $split.SplitterDistance = [Math]::Max($split.Panel1MinSize, [int]($form.ClientSize.Width * 0.20))
-    $refreshButton.Left = [Math]::Max(90, $leftHeader.ClientSize.Width - $refreshButton.Width - 12)
-    $searchBox.Width = [Math]::Max(80, $leftHeader.ClientSize.Width - 24)
-    $sendButton.Left = [Math]::Max(180, $composer.ClientSize.Width - $sendButton.Width - 10)
-    $saveMediaButton.Left = [Math]::Max(300, $rightHeader.ClientSize.Width - $saveMediaButton.Width - 12)
-    $exportCsvButton.Left = $saveMediaButton.Left - $exportCsvButton.Width - 8
-    $messageBox.Width = [Math]::Max(80, $sendButton.Left - $messageBox.Left - 8)
-    try {
-        Clear-WhatsappLocalData -OlderThanDays $MediaRetentionDays -Confirm:$false
-    }
-    catch {
-        Write-GuiLog -Level WARN -Message ('Retention cleanup failed: {0}' -f $_.Exception.Message)
-    }
-    Refresh-ActiveChats
-    $timer.Start()
-    $avatarTimer.Start()
-})
-
-$form.Add_Resize({
-    if ($form.WindowState -ne [System.Windows.Forms.FormWindowState]::Minimized) {
+        $split.SplitterDistance = [Math]::Max($split.Panel1MinSize, [int]($form.ClientSize.Width * 0.20))
         $refreshButton.Left = [Math]::Max(90, $leftHeader.ClientSize.Width - $refreshButton.Width - 12)
         $searchBox.Width = [Math]::Max(80, $leftHeader.ClientSize.Width - 24)
         $sendButton.Left = [Math]::Max(180, $composer.ClientSize.Width - $sendButton.Width - 10)
-    $saveMediaButton.Left = [Math]::Max(300, $rightHeader.ClientSize.Width - $saveMediaButton.Width - 12)
-    $exportCsvButton.Left = $saveMediaButton.Left - $exportCsvButton.Width - 8
+        $saveMediaButton.Left = [Math]::Max(300, $rightHeader.ClientSize.Width - $saveMediaButton.Width - 12)
+        $exportCsvButton.Left = $saveMediaButton.Left - $exportCsvButton.Width - 8
         $messageBox.Width = [Math]::Max(80, $sendButton.Left - $messageBox.Left - 8)
-    }
-})
+        try {
+            Clear-WhatsappLocalData -OlderThanDays $script:MediaRetentionDays -Confirm:$false
+        }
+        catch {
+            Write-GuiLog -Level WARN -Message ('Retention cleanup failed: {0}' -f $_.Exception.Message)
+        }
+        Update-ActiveChat
+        $timer.Start()
+        $avatarTimer.Start()
+    })
+
+$form.Add_Resize({
+        if ($form.WindowState -ne [System.Windows.Forms.FormWindowState]::Minimized) {
+            $refreshButton.Left = [Math]::Max(90, $leftHeader.ClientSize.Width - $refreshButton.Width - 12)
+            $searchBox.Width = [Math]::Max(80, $leftHeader.ClientSize.Width - 24)
+            $sendButton.Left = [Math]::Max(180, $composer.ClientSize.Width - $sendButton.Width - 10)
+            $saveMediaButton.Left = [Math]::Max(300, $rightHeader.ClientSize.Width - $saveMediaButton.Width - 12)
+            $exportCsvButton.Left = $saveMediaButton.Left - $exportCsvButton.Width - 8
+            $messageBox.Width = [Math]::Max(80, $sendButton.Left - $messageBox.Left - 8)
+        }
+    })
 
 $form.Add_FormClosing({
-    $timer.Stop()
-    $avatarTimer.Stop()
-    Clear-RenderedImages
-    foreach ($avatar in $script:AvatarLookup.Values) { if ($avatar) { $avatar.Dispose() } }
-    if ($brandPicture.Image) { $brandPicture.Image.Dispose() }
-    if ($brandSplash.Image) { $brandSplash.Image.Dispose() }
-})
+        $timer.Stop()
+        $avatarTimer.Stop()
+        Clear-RenderedImages
+        foreach ($avatar in $script:AvatarLookup.Values) { if ($avatar) { $avatar.Dispose() } }
+        if ($brandPicture.Image) { $brandPicture.Image.Dispose() }
+        if ($brandSplash.Image) { $brandSplash.Image.Dispose() }
+    })
 
 try {
     [void]$form.ShowDialog()
