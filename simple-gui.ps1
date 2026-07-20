@@ -48,14 +48,20 @@ $script:ActiveChatName = $null
 $script:ChatItems = @()
 $script:ContactLookup = @{}
 $script:ImageObjects = New-Object System.Collections.ArrayList
+$script:AvatarLookup = @{}
+$script:AvatarQueue = New-Object System.Collections.Queue
 $script:LastChatRefresh = [datetime]::MinValue
 $script:IsBusy = $false
 
 $script:DataDirectory = Join-Path $env:APPDATA 'PHWhatsapp'
 $script:MediaDirectory = Join-Path $script:DataDirectory 'MediaCache'
 $script:LogDirectory = Join-Path $script:DataDirectory 'Logs'
+$script:AvatarDirectory = Join-Path $script:DataDirectory 'AvatarCache'
+$script:AssetDirectory = Join-Path $PSScriptRoot 'assets'
+$script:BrandIconPath = Join-Path $script:AssetDirectory 'BlikbreinPyn-icon.png'
+$script:WindowIconPath = Join-Path $script:AssetDirectory 'BlikbreinPyn.ico'
 
-foreach ($directory in @($script:DataDirectory, $script:MediaDirectory, $script:LogDirectory)) {
+foreach ($directory in @($script:DataDirectory, $script:MediaDirectory, $script:LogDirectory, $script:AvatarDirectory)) {
     if (-not (Test-Path -LiteralPath $directory)) {
         New-Item -Path $directory -ItemType Directory -Force | Out-Null
     }
@@ -240,9 +246,48 @@ function Get-DisplayName {
     return ([string]$Chat.id -replace '@c\.us$|@g\.us$|@lid$', '')
 }
 
+function Get-ContactAvatar {
+    param([Parameter(Mandatory = $true)][string]$ChatId)
+
+    if ($script:AvatarLookup.ContainsKey($ChatId)) { return $script:AvatarLookup[$ChatId] }
+    $safeId = Get-SafeFileName -Value $ChatId -Fallback ([guid]::NewGuid().ToString('N'))
+    $cachePath = Join-Path $script:AvatarDirectory ($safeId + '.jpg')
+
+    try {
+        if (-not (Test-Path -LiteralPath $cachePath -PathType Leaf)) {
+            $contactInfo = Get-WhatsappContactInfo -ChatId $ChatId
+            if (-not $contactInfo -or [string]::IsNullOrWhiteSpace([string]$contactInfo.avatar)) {
+                $script:AvatarLookup[$ChatId] = $null
+                return $null
+            }
+            Save-UrlToFile -Url ([string]$contactInfo.avatar) -Path $cachePath | Out-Null
+        }
+        $avatar = Get-ImageFromFile -Path $cachePath
+        $script:AvatarLookup[$ChatId] = $avatar
+        return $avatar
+    }
+    catch {
+        Write-GuiLog -Level WARN -Message ('Avatar load failed for {0}: {1}' -f $ChatId, $_.Exception.Message)
+        $script:AvatarLookup[$ChatId] = $null
+        return $null
+    }
+}
+
+function Get-Initials {
+    param([string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Name)) { return '?' }
+    $parts = @($Name.Trim().Split(' ') | Where-Object { $_ })
+    if ($parts.Count -eq 1) { return $parts[0].Substring(0, [Math]::Min(2, $parts[0].Length)).ToUpperInvariant() }
+    return ($parts[0].Substring(0, 1) + $parts[1].Substring(0, 1)).ToUpperInvariant()
+}
+
 # --- Main window and 20/80 layout ---
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'PHKustom Chat Client'
+$form.Text = 'Blikbrein Pyn - PHKustom Chat Client'
+if (Test-Path -LiteralPath $script:WindowIconPath -PathType Leaf) {
+    try { $form.Icon = New-Object System.Drawing.Icon($script:WindowIconPath) }
+    catch { Write-GuiLog -Level WARN -Message ('Window icon could not be loaded: {0}' -f $_.Exception.Message) }
+}
 $form.StartPosition = 'CenterScreen'
 $form.MinimumSize = New-Object System.Drawing.Size(900, 600)
 $form.Size = New-Object System.Drawing.Size(1280, 800)
@@ -261,27 +306,36 @@ $form.Controls.Add($split)
 
 $leftHeader = New-Object System.Windows.Forms.Panel
 $leftHeader.Dock = 'Top'
-$leftHeader.Height = 92
+$leftHeader.Height = 108
 $leftHeader.BackColor = [System.Drawing.ColorTranslator]::FromHtml('#202C33')
 
+$brandPicture = New-Object System.Windows.Forms.PictureBox
+$brandPicture.Location = New-Object System.Drawing.Point(10, 8)
+$brandPicture.Size = New-Object System.Drawing.Size(42, 42)
+$brandPicture.SizeMode = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
+if (Test-Path -LiteralPath $script:BrandIconPath -PathType Leaf) {
+    try { $brandPicture.Image = Get-ImageFromFile -Path $script:BrandIconPath }
+    catch { Write-GuiLog -Level WARN -Message ('Brand image could not be loaded: {0}' -f $_.Exception.Message) }
+}
+
 $title = New-Object System.Windows.Forms.Label
-$title.Text = 'Active chats'
-$title.Font = New-Object System.Drawing.Font('Segoe UI', 15, [System.Drawing.FontStyle]::Bold)
-$title.Location = New-Object System.Drawing.Point(12, 10)
-$title.AutoSize = $true
+$title.Text = 'Blikbrein Pyn' + [Environment]::NewLine + 'Active chats'
+$title.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
+$title.Location = New-Object System.Drawing.Point(58, 8)
+$title.Size = New-Object System.Drawing.Size(120, 42)
 
 $refreshButton = New-Object System.Windows.Forms.Button
 $refreshButton.Text = 'Refresh'
 $refreshButton.Anchor = 'Top,Right'
 $refreshButton.Size = New-Object System.Drawing.Size(70, 27)
-$refreshButton.Location = New-Object System.Drawing.Point(170, 9)
+$refreshButton.Location = New-Object System.Drawing.Point(170, 14)
 
 $searchBox = New-Object System.Windows.Forms.TextBox
-$searchBox.Location = New-Object System.Drawing.Point(12, 52)
+$searchBox.Location = New-Object System.Drawing.Point(12, 68)
 $searchBox.Anchor = 'Top,Left,Right'
 $searchBox.Width = 228
 
-$leftHeader.Controls.AddRange(@($title, $refreshButton, $searchBox))
+$leftHeader.Controls.AddRange(@($brandPicture, $title, $refreshButton, $searchBox))
 $split.Panel1.Controls.Add($leftHeader)
 
 $chatList = New-Object System.Windows.Forms.ListBox
@@ -291,28 +345,48 @@ $chatList.BackColor = [System.Drawing.ColorTranslator]::FromHtml('#111B21')
 $chatList.ForeColor = [System.Drawing.ColorTranslator]::FromHtml('#E9EDEF')
 $chatList.Font = New-Object System.Drawing.Font('Segoe UI', 10)
 $chatList.IntegralHeight = $false
-$chatList.DisplayMember = 'DisplayName'
+$chatList.DrawMode = [System.Windows.Forms.DrawMode]::OwnerDrawFixed
+$chatList.ItemHeight = 66
 $split.Panel1.Controls.Add($chatList)
 $chatList.BringToFront()
 
 $rightHeader = New-Object System.Windows.Forms.Panel
 $rightHeader.Dock = 'Top'
-$rightHeader.Height = 62
+$rightHeader.Height = 68
 $rightHeader.BackColor = [System.Drawing.ColorTranslator]::FromHtml('#202C33')
+
+$selectedAvatar = New-Object System.Windows.Forms.PictureBox
+$selectedAvatar.Location = New-Object System.Drawing.Point(12, 9)
+$selectedAvatar.Size = New-Object System.Drawing.Size(48, 48)
+$selectedAvatar.SizeMode = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
 
 $contactLabel = New-Object System.Windows.Forms.Label
 $contactLabel.Text = 'Select an active chat'
 $contactLabel.Font = New-Object System.Drawing.Font('Segoe UI', 13, [System.Drawing.FontStyle]::Bold)
-$contactLabel.Location = New-Object System.Drawing.Point(16, 9)
+$contactLabel.Location = New-Object System.Drawing.Point(70, 9)
 $contactLabel.AutoSize = $true
 
 $chatIdLabel = New-Object System.Windows.Forms.Label
 $chatIdLabel.Text = ''
 $chatIdLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml('#8696A0')
-$chatIdLabel.Location = New-Object System.Drawing.Point(18, 36)
+$chatIdLabel.Location = New-Object System.Drawing.Point(72, 37)
 $chatIdLabel.AutoSize = $true
 
-$rightHeader.Controls.AddRange(@($contactLabel, $chatIdLabel))
+$exportCsvButton = New-Object System.Windows.Forms.Button
+$exportCsvButton.Text = 'Export CSV'
+$exportCsvButton.Anchor = 'Top,Right'
+$exportCsvButton.Size = New-Object System.Drawing.Size(88, 30)
+$exportCsvButton.Location = New-Object System.Drawing.Point(690, 18)
+$exportCsvButton.Enabled = $false
+
+$saveMediaButton = New-Object System.Windows.Forms.Button
+$saveMediaButton.Text = 'Save Media'
+$saveMediaButton.Anchor = 'Top,Right'
+$saveMediaButton.Size = New-Object System.Drawing.Size(90, 30)
+$saveMediaButton.Location = New-Object System.Drawing.Point(786, 18)
+$saveMediaButton.Enabled = $false
+
+$rightHeader.Controls.AddRange(@($selectedAvatar, $contactLabel, $chatIdLabel, $exportCsvButton, $saveMediaButton))
 $split.Panel2.Controls.Add($rightHeader)
 
 $composer = New-Object System.Windows.Forms.Panel
@@ -385,6 +459,8 @@ function Set-Busy {
     $messageBox.Enabled = (-not $Busy -and $null -ne $script:ActiveChatId)
     $sendButton.Enabled = (-not $Busy -and $null -ne $script:ActiveChatId)
     $attachButton.Enabled = (-not $Busy -and $null -ne $script:ActiveChatId)
+    $exportCsvButton.Enabled = (-not $Busy -and $null -ne $script:ActiveChatId)
+    $saveMediaButton.Enabled = (-not $Busy -and $null -ne $script:ActiveChatId)
     $form.UseWaitCursor = $Busy
 }
 
@@ -440,7 +516,9 @@ function Refresh-ActiveChats {
                 ChatId      = [string]$chat.id
                 Type        = [string]$chat.type
                 Archived    = [bool]$chat.archive
+                Avatar      = if ($script:AvatarLookup.ContainsKey([string]$chat.id)) { $script:AvatarLookup[[string]$chat.id] } else { $null }
             }
+            if (-not $script:AvatarLookup.ContainsKey([string]$chat.id)) { $script:AvatarQueue.Enqueue([string]$chat.id) }
             [void]$items.Add($item)
         }
 
@@ -668,6 +746,51 @@ function Show-SelectedChat {
     }
 }
 
+$chatList.Add_DrawItem({
+    param($sender, $e)
+    if ($e.Index -lt 0 -or $e.Index -ge $chatList.Items.Count) { return }
+    $item = $chatList.Items[$e.Index]
+    $selected = (($e.State -band [Windows.Forms.DrawItemState]::Selected) -ne 0)
+    $background = if ($selected) { [Drawing.ColorTranslator]::FromHtml('#17453F') } else { $chatList.BackColor }
+    $backgroundBrush = New-Object Drawing.SolidBrush($background)
+    $e.Graphics.FillRectangle($backgroundBrush, $e.Bounds)
+    $backgroundBrush.Dispose()
+
+    $avatarRect = New-Object Drawing.Rectangle(($e.Bounds.X + 9), ($e.Bounds.Y + 9), 46, 46)
+    if ($item.Avatar) {
+        $state = $e.Graphics.Save()
+        $avatarPath = New-Object Drawing.Drawing2D.GraphicsPath
+        $avatarPath.AddEllipse($avatarRect)
+        $e.Graphics.SetClip($avatarPath)
+        $e.Graphics.DrawImage($item.Avatar, $avatarRect)
+        $e.Graphics.Restore($state)
+        $avatarPath.Dispose()
+    }
+    else {
+        $avatarBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#2A7F76'))
+        $e.Graphics.FillEllipse($avatarBrush, $avatarRect)
+        $avatarBrush.Dispose()
+        $initials = Get-Initials -Name $item.DisplayName
+        $initialFont = New-Object Drawing.Font('Segoe UI', 11, [Drawing.FontStyle]::Bold)
+        $initialBrush = New-Object Drawing.SolidBrush([Drawing.Color]::White)
+        $initialSize = $e.Graphics.MeasureString($initials, $initialFont)
+        $e.Graphics.DrawString($initials, $initialFont, $initialBrush, ($avatarRect.X + (($avatarRect.Width - $initialSize.Width) / 2)), ($avatarRect.Y + (($avatarRect.Height - $initialSize.Height) / 2)))
+        $initialFont.Dispose()
+        $initialBrush.Dispose()
+    }
+
+    $nameFont = New-Object Drawing.Font('Segoe UI', 10, [Drawing.FontStyle]::Bold)
+    $detailFont = New-Object Drawing.Font('Segoe UI', 8)
+    $nameBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#E9EDEF'))
+    $detailBrush = New-Object Drawing.SolidBrush([Drawing.ColorTranslator]::FromHtml('#8696A0'))
+    $e.Graphics.DrawString([string]$item.DisplayName, $nameFont, $nameBrush, ($e.Bounds.X + 64), ($e.Bounds.Y + 11))
+    $e.Graphics.DrawString([string]$item.ChatId, $detailFont, $detailBrush, ($e.Bounds.X + 64), ($e.Bounds.Y + 36))
+    $nameFont.Dispose()
+    $detailFont.Dispose()
+    $nameBrush.Dispose()
+    $detailBrush.Dispose()
+})
+
 $chatList.Add_SelectedIndexChanged({
     if ($script:IsBusy -or -not $chatList.SelectedItem) { return }
     $selected = $chatList.SelectedItem
@@ -675,6 +798,7 @@ $chatList.Add_SelectedIndexChanged({
     $script:ActiveChatName = [string]$selected.DisplayName
     $contactLabel.Text = $script:ActiveChatName
     $chatIdLabel.Text = $script:ActiveChatId
+    $selectedAvatar.Image = $selected.Avatar
     Show-SelectedChat
 })
 
@@ -745,6 +869,67 @@ $attachButton.Add_Click({
     }
 })
 
+$exportCsvButton.Add_Click({
+    if (-not $script:ActiveChatId -or $script:IsBusy) { return }
+    $dialog = New-Object Windows.Forms.SaveFileDialog
+    $safeName = Get-SafeFileName -Value $script:ActiveChatName -Fallback 'chat'
+    $dialog.Title = 'Export selected chat to CSV'
+    $dialog.Filter = 'CSV files|*.csv'
+    $dialog.FileName = '{0}_{1}.csv' -f $safeName, (Get-Date -Format 'yyyyMMdd_HHmmss')
+    if ($dialog.ShowDialog($form) -ne [Windows.Forms.DialogResult]::OK) { $dialog.Dispose(); return }
+    $path = $dialog.FileName
+    $dialog.Dispose()
+    Set-Busy $true
+    try {
+        Set-Status 'Exporting chat to CSV...'
+        $file = Export-WhatsappChat -ChatId $script:ActiveChatId -Path $path -Count 10000
+        Set-Status ('Chat exported to {0}' -f $file.FullName)
+        $message = 'Chat exported successfully:' + [Environment]::NewLine + $file.FullName
+        [Windows.Forms.MessageBox]::Show($message, 'Export complete', 'OK', 'Information') | Out-Null
+    }
+    catch {
+        Write-GuiLog -Level ERROR -Message ('CSV export failed: {0}' -f $_.Exception.ToString())
+        Set-Status -IsError $true -Text ('CSV export failed: {0}' -f $_.Exception.Message)
+    }
+    finally { Set-Busy $false }
+})
+
+$saveMediaButton.Add_Click({
+    if (-not $script:ActiveChatId -or $script:IsBusy) { return }
+    $dialog = New-Object Windows.Forms.FolderBrowserDialog
+    $dialog.Description = 'Select a folder for all media from this chat'
+    if ($dialog.ShowDialog($form) -ne [Windows.Forms.DialogResult]::OK) { $dialog.Dispose(); return }
+    $safeName = Get-SafeFileName -Value $script:ActiveChatName -Fallback 'chat'
+    $destination = Join-Path $dialog.SelectedPath ('{0}_media_{1}' -f $safeName, (Get-Date -Format 'yyyyMMdd_HHmmss'))
+    $dialog.Dispose()
+    Set-Busy $true
+    try {
+        Set-Status 'Downloading all available chat media...'
+        $results = @(Save-WhatsappChatMedia -ChatId $script:ActiveChatId -DestinationPath $destination -Count 10000)
+        $downloaded = @($results | Where-Object { $_.Status -eq 'Downloaded' }).Count
+        $failed = @($results | Where-Object { $_.Status -eq 'Failed' }).Count
+        Set-Status ('Media export complete: {0} downloaded, {1} failed.' -f $downloaded, $failed)
+        $message = 'Media folder:' + [Environment]::NewLine + $destination + [Environment]::NewLine + [Environment]::NewLine + ('Downloaded: {0}' -f $downloaded) + [Environment]::NewLine + ('Failed: {0}' -f $failed)
+        [Windows.Forms.MessageBox]::Show($message, 'Media export complete', 'OK', 'Information') | Out-Null
+    }
+    catch {
+        Write-GuiLog -Level ERROR -Message ('Media export failed: {0}' -f $_.Exception.ToString())
+        Set-Status -IsError $true -Text ('Media export failed: {0}' -f $_.Exception.Message)
+    }
+    finally { Set-Busy $false }
+})
+
+$avatarTimer = New-Object System.Windows.Forms.Timer
+$avatarTimer.Interval = 350
+$avatarTimer.Add_Tick({
+    if ($script:IsBusy -or $script:AvatarQueue.Count -eq 0) { return }
+    $chatId = [string]$script:AvatarQueue.Dequeue()
+    $avatar = Get-ContactAvatar -ChatId $chatId
+    foreach ($item in $script:ChatItems) { if ($item.ChatId -eq $chatId) { $item.Avatar = $avatar } }
+    if ($script:ActiveChatId -eq $chatId) { $selectedAvatar.Image = $avatar }
+    $chatList.Invalidate()
+})
+
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 15000
 $timer.Add_Tick({
@@ -758,6 +943,8 @@ $form.Add_Shown({
     $refreshButton.Left = [Math]::Max(90, $leftHeader.ClientSize.Width - $refreshButton.Width - 12)
     $searchBox.Width = [Math]::Max(80, $leftHeader.ClientSize.Width - 24)
     $sendButton.Left = [Math]::Max(180, $composer.ClientSize.Width - $sendButton.Width - 10)
+    $saveMediaButton.Left = [Math]::Max(300, $rightHeader.ClientSize.Width - $saveMediaButton.Width - 12)
+    $exportCsvButton.Left = $saveMediaButton.Left - $exportCsvButton.Width - 8
     $messageBox.Width = [Math]::Max(80, $sendButton.Left - $messageBox.Left - 8)
     try {
         Clear-WhatsappLocalData -OlderThanDays $MediaRetentionDays -Confirm:$false
@@ -767,6 +954,7 @@ $form.Add_Shown({
     }
     Refresh-ActiveChats
     $timer.Start()
+    $avatarTimer.Start()
 })
 
 $form.Add_Resize({
@@ -774,13 +962,18 @@ $form.Add_Resize({
         $refreshButton.Left = [Math]::Max(90, $leftHeader.ClientSize.Width - $refreshButton.Width - 12)
         $searchBox.Width = [Math]::Max(80, $leftHeader.ClientSize.Width - 24)
         $sendButton.Left = [Math]::Max(180, $composer.ClientSize.Width - $sendButton.Width - 10)
+    $saveMediaButton.Left = [Math]::Max(300, $rightHeader.ClientSize.Width - $saveMediaButton.Width - 12)
+    $exportCsvButton.Left = $saveMediaButton.Left - $exportCsvButton.Width - 8
         $messageBox.Width = [Math]::Max(80, $sendButton.Left - $messageBox.Left - 8)
     }
 })
 
 $form.Add_FormClosing({
     $timer.Stop()
+    $avatarTimer.Stop()
     Clear-RenderedImages
+    foreach ($avatar in $script:AvatarLookup.Values) { if ($avatar) { $avatar.Dispose() } }
+    if ($brandPicture.Image) { $brandPicture.Image.Dispose() }
 })
 
 try {
@@ -788,5 +981,6 @@ try {
 }
 finally {
     $timer.Dispose()
+    $avatarTimer.Dispose()
     $form.Dispose()
 }
