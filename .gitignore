@@ -1,0 +1,9 @@
+config.json
+*.log
+*.db
+*.db-shm
+*.db-wal
+MediaCache/
+Database/
+Logs/
+TestResults/
