@@ -718,8 +718,14 @@ function Save-WhatsappChatMedia {
                 '^image/png'  { $extension = '.png'; break }
                 '^image/gif'  { $extension = '.gif'; break }
                 '^image/webp' { $extension = '.webp'; break }
-                '^video/mp4'  { $extension = '.mp4'; break }
-                '^audio/ogg'  { $extension = '.ogg'; break }
+                '^video/mp4'        { $extension = '.mp4'; break }
+                '^video/quicktime'  { $extension = '.mov'; break }
+                '^video/x-msvideo'  { $extension = '.avi'; break }
+                '^video/x-matroska' { $extension = '.mkv'; break }
+                '^video/webm'       { $extension = '.webm'; break }
+                '^video/3gpp'       { $extension = '.3gp'; break }
+                '^video/3gpp2'      { $extension = '.3g2'; break }
+                '^audio/ogg'        { $extension = '.ogg'; break }
                 '^audio/mpeg' { $extension = '.mp3'; break }
                 default       { $extension = '.bin' }
             }
