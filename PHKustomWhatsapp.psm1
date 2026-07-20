@@ -2,15 +2,11 @@
 .SYNOPSIS
 WhatsApp automation and reporting toolkit using Green API.
 Author: Pieter Hattingh
-Version: 3.5
+Version: 4.0.0
 Description: PowerShell module for WhatsApp messaging, media, status, and contact management via Green API.
              All config variables are loaded from an external JSON file ($env:APPDATA\PHWhatsapp\config.json).
              Robust error handling and clear error messages included.
              Includes: TLS 1.2 enforcement, variable clearing at script start.
-APIURL: https://7103.api.greenapi.com
-MediaURL: https://7103.media.greenapicom
-idInstance: 7103300833
-Nr: 27645258757
 #>
 
 # --- Global Configuration Variables (Loaded from external file) ---
@@ -21,9 +17,21 @@ $global:BaseUrl = $null
 # --- Dynamic config path (per-user, not hardcoded) ---
 $script:ConfigDir = Join-Path $env:APPDATA 'PHWhatsapp'
 $script:ConfigFilePath = Join-Path $script:ConfigDir 'config.json'
+$script:LogDir = Join-Path $script:ConfigDir 'Logs'
 
 # --- Ensure TLS 1.2 for secure communication ---
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# --- Load private implementation files ---
+$privateFiles = @('Configuration.ps1', 'ApiClient.ps1')
+foreach ($privateFile in $privateFiles) {
+    $privatePath = Join-Path (Join-Path $PSScriptRoot 'Private') $privateFile
+    if (-not (Test-Path -LiteralPath $privatePath -PathType Leaf)) {
+        throw "Required private module file not found: $privatePath"
+    }
+    . $privatePath
+}
+Initialize-WhatsappDataDirectory
 
 function Clear-WhatsappFunctions {
     <#
@@ -34,6 +42,7 @@ function Clear-WhatsappFunctions {
     #>
     $functionNames = @( 
         'New-WhatsappConfigFile',
+        'Clear-WhatsappLocalData',
         'Get-WhatsappConfig',
         'Format-WhatsappNumber',
         'Format-PlainNumber',
@@ -97,128 +106,8 @@ function Clear-WhatsappFunctions {
     Write-Host "All WhatsApp functions have been removed from memory." -ForegroundColor Yellow
 }
 
-function New-WhatsappConfigFile {
-    <#
-    .SYNOPSIS
-    Creates a new config.json file for Green API credentials if it does not exist.
-    .DESCRIPTION
-    This function checks for the existence of 'c:\Programdata\PHWhatsapp\config.json'.
-    If the file or its parent directory does not exist, it prompts the user for
-    their Green API Instance ID and API Token. It then creates the directory
-    (if necessary) and the config.json file with the provided credentials and a date stamp.
-    .EXAMPLE
-    New-WhatsappConfigFile
-    # This function is typically called internally by Load-WhatsappConfig.
-    #>
-    Write-Host "Checking for WhatsApp configuration file..." -ForegroundColor DarkYellow
-
-    $ConfigFilePath = $script:ConfigFilePath
-    $ConfigDirPath = $script:ConfigDir
-
-    if (Test-Path $ConfigFilePath) {
-        Write-Host "Configuration file already exists at '$ConfigFilePath'." -ForegroundColor Green
-        return $true
-    }
-
-    Write-Host "Configuration file not found. Creating a new one..." -ForegroundColor Cyan
-
-    # Create directory if it doesn't exist
-    if (-not (Test-Path $ConfigDirPath)) {
-        try {
-            New-Item -Path $ConfigDirPath -ItemType Directory -Force | Out-Null
-            Write-Host "Created directory: '$ConfigDirPath'" -ForegroundColor Cyan
-        } catch {
-            Write-Error "Failed to create directory '$ConfigDirPath': $($_.Exception.Message)"
-            return $false
-        }
-    }
-
-    # Prompt for credentials
-    $idInstance = Read-Host "Please enter your Green API Instance ID"
-    $apiTokenInstance = Read-Host "Please enter your Green API API Token"
-
-    if ([string]::IsNullOrWhiteSpace($idInstance) -or [string]::IsNullOrWhiteSpace($apiTokenInstance)) {
-        Write-Error "Instance ID and API Token cannot be empty. Configuration file not created."
-        return $false
-    }
-
-    # Create the config object with a date stamp
-    $ConfigContent = [PSCustomObject]@{
-        idInstance     = $idInstance
-        apiTokenInstance = $apiTokenInstance
-        DateCreated    = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-    }
-
-    try {
-        $ConfigContent | ConvertTo-Json -Depth 4 | Set-Content -Path $ConfigFilePath -Force -Encoding UTF8
-        Write-Host "Configuration file created successfully at '$ConfigFilePath'." -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Error "Failed to create configuration file '$ConfigFilePath': $($_.Exception.Message)"
-        return $false
-    }
-}
-
-function Get-WhatsappConfig {
-    <#
-    .SYNOPSIS
-    Gets Green API configuration (InstanceId, Token, BaseUrl) from a JSON file.
-    .DESCRIPTION
-    This function reads the Green API instance ID, API token, and base URL
-    from a JSON configuration file located at '$env:APPDATA\PHWhatsapp\config.json'.
-    It sets these values as global variables for use by other functions in the module.
-    The BaseUrl is constructed dynamically based on the InstanceId.
-    If the config file does not exist, it writes a warning.
-    .EXAMPLE
-    Get-WhatsappConfig
-    #>
-
-    $ConfigFilePath = $script:ConfigFilePath
-
-    if (-not (Test-Path $ConfigFilePath)) {
-        Write-Warning "WhatsApp configuration file not found at '$ConfigFilePath'. Please run 'New-WhatsappConfigFile' to create it."
-        return $false
-    }
-
-    try {
-        $Config = Get-Content -Path $ConfigFilePath | ConvertFrom-Json
-        $global:InstanceId = $Config.idInstance
-        $global:Token = $Config.apiTokenInstance
-
-        if (-not $global:InstanceId) {
-            Write-Error "Error: 'idInstance' not found in configuration file."
-            return $false
-        }
-        if (-not $global:Token) {
-            Write-Error "Error: 'apiTokenInstance' not found in configuration file."
-            return $false
-        }
-
-        # Check if config specifies a custom apiUrl/BaseUrl, otherwise construct it dynamically
-        if ($Config.apiUrl) {
-            $global:BaseUrl = "$($Config.apiUrl.TrimEnd('/'))/waInstance$global:InstanceId"
-        } elseif ($Config.BaseUrl) {
-            $global:BaseUrl = $Config.BaseUrl
-        } else {
-            # Dynamically construct BaseUrl based on InstanceId
-            $instanceIdPrefix = $global:InstanceId.Substring(0, 4)
-            $global:BaseUrl = "https://$instanceIdPrefix.api.greenapi.com/waInstance$global:InstanceId"
-        }
-
-        Write-Host "Configuration loaded successfully." -ForegroundColor Green
-        Write-Host "Instance ID: $($global:InstanceId)" -ForegroundColor Green
-        Write-Host "Base URL: $($global:BaseUrl)" -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Error "Failed to load or parse configuration file: $($_.Exception.Message)"
-        return $false
-    }
-}
-
-# Load configuration when the module is imported (not executed directly)
-if ($MyInvocation.InvocationName -eq '.') {
-    # Dot-sourced, skip auto-load
-} else {
+# Load protected configuration when the module is imported.
+if ($MyInvocation.InvocationName -ne '.') {
     Get-WhatsappConfig | Out-Null
 }
 
@@ -331,159 +220,6 @@ function Format-PlainNumber {
     }
 
     return $n
-}
-
-# --- Private Helper Function to Invoke Green API ---
-function Invoke-WhatsappApi {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Endpoint,
-
-        [Parameter(Mandatory = $false)]
-        [ValidateSet('GET', 'POST', 'PUT', 'DELETE')]
-        [string]$Method = 'POST',
-
-        [Parameter(Mandatory = $false)]
-        [object]$Body,
-
-        [Parameter(Mandatory = $false)]
-        [hashtable]$QueryParams,
-
-        [Parameter(Mandatory = $false)]
-        [string]$OutFile
-    )
-
-    if (-not $global:InstanceId -or -not $global:Token -or -not $global:BaseUrl) {
-        Write-Error "API credentials are not loaded. Please ensure Get-WhatsappConfig runs successfully."
-        return $null
-    }
-
-    # Green API deleteNotification endpoint has the token in the middle:
-    # {{BaseUrl}}/deleteNotification/{{Token}}/{{ReceiptId}}
-    if ($Endpoint -match '^deleteNotification/(.+)$') {
-        $receipt = $Matches[1]
-        $url = "$($global:BaseUrl.TrimEnd('/'))/deleteNotification/$global:Token/$receipt"
-    } else {
-        $url = "$($global:BaseUrl.TrimEnd('/'))/$Endpoint/$global:Token"
-    }
-
-    if ($QueryParams -and $QueryParams.Count -gt 0) {
-        $queryString = ($QueryParams.Keys | ForEach-Object { "$_=$($QueryParams.$_)" }) -join '&'
-        $url += "?$queryString"
-    }
-
-    $headers = @{"Accept" = "application/json"}
-    $contentType = "application/json"
-
-    $bodyPayload = $null
-    if ($null -ne $Body) {
-        if ($Body -is [string]) {
-            $bodyPayload = $Body
-        } else {
-            $bodyPayload = $Body | ConvertTo-Json -Depth 4 -Compress
-        }
-    }
-
-    $restParams = @{
-        Uri = $url
-        Method = $Method
-        Headers = $headers
-        ErrorAction = 'Stop'
-    }
-
-    if ($null -ne $bodyPayload) {
-        $restParams.Body = $bodyPayload
-        $restParams.ContentType = $contentType
-    }
-
-    if ($OutFile) {
-        $restParams.OutFile = $OutFile
-    }
-
-    try {
-        $response = Invoke-RestMethod @restParams
-        if ($OutFile) {
-            return $true
-        }
-        return $response
-    } catch {
-        # Check for transient DNS / connectivity issues
-        $isDnsFailure = $false
-        $isOtherNetworkFailure = $false
-
-        if ($_.Exception) {
-            if ($_.Exception -is [System.Net.WebException]) {
-                $status = $_.Exception.Status
-                if ($status -eq [System.Net.WebExceptionStatus]::NameResolutionFailure) {
-                    $isDnsFailure = $true
-                } elseif ($status -eq [System.Net.WebExceptionStatus]::ConnectFailure -or
-                          $status -eq [System.Net.WebExceptionStatus]::Timeout -or
-                          $status -eq [System.Net.WebExceptionStatus]::ConnectionClosed -or
-                          $status -eq [System.Net.WebExceptionStatus]::ReceiveFailure -or
-                          $status -eq [System.Net.WebExceptionStatus]::SendFailure) {
-                    $isOtherNetworkFailure = $true
-                }
-            }
-
-            if (-not $isDnsFailure -and -not $isOtherNetworkFailure) {
-                $errMsg = $_.Exception.Message
-                if ($_.Exception.InnerException) {
-                    $errMsg += " " + $_.Exception.InnerException.Message
-                }
-                if ($errMsg -match "could not be resolved" -or $errMsg -match "resolving host" -or $errMsg -match "DNS") {
-                    $isDnsFailure = $true
-                } elseif ($errMsg -match "timed out" -or $errMsg -match "connection" -or $errMsg -match "offline") {
-                    $isOtherNetworkFailure = $true
-                }
-            }
-        }
-
-        # If it's a DNS failure and we are using a specific subdomain, try falling back to the universal domain
-        if ($isDnsFailure -and $url -match '^https://([^.]+)\.api\.greenapi\.com/(.*)$' -and $Matches[1] -ne 'api') {
-            $fallbackUrl = "https://api.greenapi.com/$($Matches[2])"
-            Write-Warning "DNS resolution failed for host '$($Matches[1]).api.greenapi.com'. Falling back to universal host 'api.greenapi.com'..."
-            try {
-                $restParams.Uri = $fallbackUrl
-                $response = Invoke-RestMethod @restParams
-                if ($OutFile) {
-                    return $true
-                }
-                return $response
-            } catch {
-                # Fall through to normal error handling with the fallback exception if the fallback also fails
-            }
-        }
-
-        if ($isDnsFailure -or $isOtherNetworkFailure) {
-            Write-Warning "API Call to '$Endpoint' failed due to network/connectivity issue: $($_.Exception.Message). Retrying..."
-        } else {
-            Write-Error "API Call to '$Endpoint' failed: $_"
-            if ($_.Exception.Response) {
-                try {
-                    $ErrorResponse = $_.Exception.Response.GetResponseStream()
-                    $Reader = New-Object System.IO.StreamReader($ErrorResponse)
-                    $ErrorContent = $Reader.ReadToEnd()
-                    $Reader.Close()
-                    if ($ErrorContent) {
-                        try {
-                            $ErrorDetails = $ErrorContent | ConvertFrom-Json
-                            if ($ErrorDetails -and $ErrorDetails.message) {
-                                Write-Error "Green API Error Details: $($ErrorDetails.message) (Code: $($ErrorDetails.code))"
-                            } else {
-                                Write-Error "Raw Error Response: $ErrorContent"
-                            }
-                        } catch {
-                            Write-Error "Raw Error Response: $ErrorContent"
-                        }
-                    }
-                } catch {
-                    Write-Error "Could not parse detailed API error response from Green API."
-                }
-            }
-        }
-        return $null
-    }
 }
 
 function Send-Whatsapp {
@@ -1001,6 +737,31 @@ param(
 
 }
 
+function Get-WhatsappChats {
+<#
+    .SYNOPSIS
+    Retrieves the most recently active chats for the Green API instance.
+
+    .DESCRIPTION
+    Calls the Green API getChats service method. Results are returned in chat
+    activity order and include the chat ID, name, type and archive state.
+
+    .PARAMETER Count
+    Maximum number of active chats to return.
+
+    .EXAMPLE
+    Get-WhatsappChats -Count 100
+#>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 500)]
+        [int]$Count = 100
+    )
+
+    return Invoke-WhatsappApi -Endpoint "getChats" -Method "GET" -QueryParams @{ count = $Count }
+}
+
 function Get-Contacts {
 <#
     .SYNOPSIS
@@ -1419,16 +1180,27 @@ param(
 function Update-WhatsappApiToken {
 <#
     .SYNOPSIS
-    Get a new API token for the instance.
-    .DESCRIPTION
-    This function retrieves a new API token for your Green API instance.
-    .EXAMPLE
-    Update-WhatsappApiToken
-    #>
+    Rotates the Green API token and stores the replacement using Windows DPAPI.
+#>
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
+    param()
 
+    if (-not $PSCmdlet.ShouldProcess(('Green API instance {0}' -f $global:InstanceId), 'Rotate API token')) {
+        return
+    }
 
-    return Invoke-WhatsappApi -Endpoint "updateApiToken" -Method "GET"
+    $response = Invoke-WhatsappApi -Endpoint "updateApiToken" -Method "GET"
+    $newToken = if ($response.apiTokenInstance) { [string]$response.apiTokenInstance } elseif ($response.apiToken) { [string]$response.apiToken } else { $null }
+    if ([string]::IsNullOrWhiteSpace($newToken)) {
+        throw 'Green API rotated the token but did not return a replacement token in a recognised field.'
+    }
 
+    $secureToken = ConvertTo-SecureString -String $newToken -AsPlainText -Force
+    $existingConfig = Get-Content -LiteralPath $script:ConfigFilePath -Raw | ConvertFrom-Json
+    Save-WhatsappProtectedToken -InstanceId $global:InstanceId -SecureToken $secureToken -ApiUrl ([string]$existingConfig.apiUrl)
+    $global:Token = $newToken
+    Write-WhatsappLog -Message 'Green API token rotated and stored using DPAPI.'
+    return $response
 }
 
 function Get-WhatsappWaAccountInfo {
@@ -2348,7 +2120,9 @@ function Save-LocalChatMessage {
             if ($raw) {
                 $history = @(ConvertFrom-Json $raw)
             }
-        } catch {}
+        } catch {
+            Write-WhatsappLog -Level WARN -Message ('Could not read local chat history {0}: {1}' -f $dbPath, $_.Exception.Message)
+        }
     }
 
     # Avoid adding duplicate message IDs
@@ -2373,4 +2147,8 @@ function Save-LocalChatMessage {
 
 # Export only primary functions
 Export-ModuleMember -Function `
+<<<<<<< HEAD
     New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage,Get-WhatsappContactInfo,Get-WhatsappChats
+=======
+    New-WhatsappConfigFile,Get-WhatsappConfig,Clear-WhatsappLocalData,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-WhatsappChats,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage
+>>>>>>> a9b3c4c9c01bfb2609c262cb75103f4b880110b9
