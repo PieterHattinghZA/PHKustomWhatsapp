@@ -44,6 +44,9 @@ function Clear-WhatsappFunctions {
         'New-WhatsappConfigFile',
         'Clear-WhatsappLocalData',
         'Get-WhatsappConfig',
+        'Get-WhatsappContactInfo',
+        'Export-WhatsappChat',
+        'Save-WhatsappChatMedia',
         'Format-WhatsappNumber',
         'Format-PlainNumber',
         'Send-Whatsapp',
@@ -605,6 +608,174 @@ param(
 
 }
 
+function Export-WhatsappChat {
+<#
+    .SYNOPSIS
+    Exports a chat history to a UTF-8 CSV file.
+
+    .PARAMETER ChatId
+    Chat identifier to export.
+
+    .PARAMETER Path
+    Full destination CSV path.
+
+    .PARAMETER Count
+    Maximum number of messages to request from Green API.
+#>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$ChatId,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$Path,
+        [ValidateRange(1, 10000)][int]$Count = 1000
+    )
+
+    $destination = [IO.Path]::GetFullPath($Path)
+    if ([IO.Path]::GetExtension($destination) -ne '.csv') {
+        $destination += '.csv'
+    }
+
+    $directory = Split-Path -Parent $destination
+    if (-not (Test-Path -LiteralPath $directory)) {
+        New-Item -Path $directory -ItemType Directory -Force | Out-Null
+    }
+
+    $epoch = [DateTime]::SpecifyKind(
+        [DateTime]::ParseExact('1970-01-01', 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture),
+        [DateTimeKind]::Utc
+    )
+
+    $history = @(Get-ChatHistory -ChatId $ChatId -Count $Count)
+    $rows = foreach ($message in ($history | Sort-Object { [int64]$_.timestamp })) {
+        $messageTime = $null
+        try { $messageTime = $epoch.AddSeconds([int64]$message.timestamp).ToLocalTime() } catch { }
+
+        [PSCustomObject][ordered]@{
+            DateTime         = if ($messageTime) { $messageTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '' }
+            Direction        = [string]$message.type
+            ChatId           = [string]$message.chatId
+            SenderId         = [string]$message.senderId
+            SenderName       = if ($message.senderContactName) { [string]$message.senderContactName } else { [string]$message.senderName }
+            MessageId        = [string]$message.idMessage
+            MessageType      = [string]$message.typeMessage
+            Status           = [string]$message.statusMessage
+            Text             = [string]$message.textMessage
+            Caption          = [string]$message.caption
+            FileName         = [string]$message.fileName
+            MimeType         = [string]$message.mimeType
+            DownloadUrl      = [string]$message.downloadUrl
+            IsDeleted        = [bool]$message.isDeleted
+            IsEdited         = [bool]$message.isEdited
+        }
+    }
+
+    $rows | Export-Csv -LiteralPath $destination -NoTypeInformation -Encoding UTF8 -Force
+    Write-WhatsappLog -Message ('Exported {0} messages from {1} to {2}.' -f @($rows).Count, $ChatId, $destination)
+    return Get-Item -LiteralPath $destination
+}
+
+function Save-WhatsappChatMedia {
+<#
+    .SYNOPSIS
+    Downloads every available media attachment from a chat history.
+
+    .PARAMETER ChatId
+    Chat identifier whose media should be downloaded.
+
+    .PARAMETER DestinationPath
+    Directory in which media files are saved.
+
+    .PARAMETER Count
+    Maximum number of messages to request from Green API.
+
+    .PARAMETER Force
+    Replaces existing files instead of skipping them.
+#>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$ChatId,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$DestinationPath,
+        [ValidateRange(1, 10000)][int]$Count = 1000,
+        [switch]$Force
+    )
+
+    $destination = [IO.Path]::GetFullPath($DestinationPath)
+    if (-not (Test-Path -LiteralPath $destination)) {
+        New-Item -Path $destination -ItemType Directory -Force | Out-Null
+    }
+
+    $mediaTypes = @('imageMessage','videoMessage','documentMessage','audioMessage','stickerMessage')
+    $history = @(Get-ChatHistory -ChatId $ChatId -Count $Count)
+    $results = New-Object Collections.ArrayList
+
+    foreach ($message in ($history | Where-Object { $mediaTypes -contains [string]$_.typeMessage })) {
+        $downloadUrl = [string]$message.downloadUrl
+        if ([string]::IsNullOrWhiteSpace($downloadUrl)) {
+            [void]$results.Add([PSCustomObject]@{
+                MessageId = [string]$message.idMessage
+                Path      = $null
+                Status    = 'NoDownloadUrl'
+                Error     = $null
+            })
+            continue
+        }
+
+        $extension = [IO.Path]::GetExtension([string]$message.fileName)
+        if (-not $extension) {
+            switch -Regex ([string]$message.mimeType) {
+                '^image/jpeg' { $extension = '.jpg'; break }
+                '^image/png'  { $extension = '.png'; break }
+                '^image/gif'  { $extension = '.gif'; break }
+                '^image/webp' { $extension = '.webp'; break }
+                '^video/mp4'  { $extension = '.mp4'; break }
+                '^audio/ogg'  { $extension = '.ogg'; break }
+                '^audio/mpeg' { $extension = '.mp3'; break }
+                default       { $extension = '.bin' }
+            }
+        }
+
+        $fileName = [string]$message.fileName
+        if ([string]::IsNullOrWhiteSpace($fileName)) {
+            $fileName = '{0}{1}' -f [string]$message.idMessage, $extension
+        }
+        foreach ($invalidCharacter in [IO.Path]::GetInvalidFileNameChars()) {
+            $fileName = $fileName.Replace([string]$invalidCharacter, '_')
+        }
+
+        $filePath = Join-Path $destination $fileName
+        if ((Test-Path -LiteralPath $filePath) -and -not $Force) {
+            [void]$results.Add([PSCustomObject]@{
+                MessageId = [string]$message.idMessage
+                Path      = $filePath
+                Status    = 'SkippedExisting'
+                Error     = $null
+            })
+            continue
+        }
+
+        try {
+            Start-FileDownload -Uri $downloadUrl -OutFile $filePath -Description ('Downloading {0}' -f $fileName)
+            [void]$results.Add([PSCustomObject]@{
+                MessageId = [string]$message.idMessage
+                Path      = $filePath
+                Status    = 'Downloaded'
+                Error     = $null
+            })
+        }
+        catch {
+            Write-WhatsappLog -Level ERROR -Message ('Media download failed for {0}: {1}' -f $message.idMessage, $_.Exception.Message)
+            [void]$results.Add([PSCustomObject]@{
+                MessageId = [string]$message.idMessage
+                Path      = $filePath
+                Status    = 'Failed'
+                Error     = $_.Exception.Message
+            })
+        }
+    }
+
+    Write-WhatsappLog -Message ('Processed {0} media items from {1} into {2}.' -f $results.Count, $ChatId, $destination)
+    return @($results)
+}
+
 function Set-ChatRead {
 <#
     .SYNOPSIS
@@ -758,6 +929,24 @@ function Get-WhatsappChats {
     )
 
     return Invoke-WhatsappApi -Endpoint "getChats" -Method "GET" -QueryParams @{ count = $Count }
+}
+
+function Get-WhatsappContactInfo {
+<#
+    .SYNOPSIS
+    Retrieves profile and avatar information for a contact or group chat.
+
+    .PARAMETER ChatId
+    Green API chat identifier such as 27821234567@c.us.
+#>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ChatId
+    )
+
+    return Invoke-WhatsappApi -Endpoint "getContactInfo" -Body @{ chatId = $ChatId }
 }
 
 function Get-Contacts {
@@ -2110,4 +2299,4 @@ function Save-LocalChatMessage {
 
 # Export only primary functions
 Export-ModuleMember -Function `
-    New-WhatsappConfigFile,Get-WhatsappConfig,Clear-WhatsappLocalData,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-WhatsappChats,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage
+    New-WhatsappConfigFile,Get-WhatsappConfig,Clear-WhatsappLocalData,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Export-WhatsappChat,Save-WhatsappChatMedia,Set-ChatRead,Get-WhatsappFile,Get-WhatsappChats,Get-WhatsappContactInfo,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage
