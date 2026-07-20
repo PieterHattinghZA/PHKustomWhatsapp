@@ -710,15 +710,6 @@ function Save-WhatsappChatMedia {
 
     foreach ($message in ($history | Where-Object { $mediaTypes -contains [string]$_.typeMessage })) {
         $downloadUrl = [string]$message.downloadUrl
-        if ([string]::IsNullOrWhiteSpace($downloadUrl)) {
-            [void]$results.Add([PSCustomObject]@{
-                MessageId = [string]$message.idMessage
-                Path      = $null
-                Status    = 'NoDownloadUrl'
-                Error     = $null
-            })
-            continue
-        }
 
         $extension = [IO.Path]::GetExtension([string]$message.fileName)
         if (-not $extension) {
@@ -734,13 +725,16 @@ function Save-WhatsappChatMedia {
             }
         }
 
-        $fileName = [string]$message.fileName
-        if ([string]::IsNullOrWhiteSpace($fileName)) {
-            $fileName = '{0}{1}' -f [string]$message.idMessage, $extension
-        }
+        $originalName = [string]$message.fileName
+        if ([string]::IsNullOrWhiteSpace($originalName)) { $originalName = 'media' + $extension }
         foreach ($invalidCharacter in [IO.Path]::GetInvalidFileNameChars()) {
-            $fileName = $fileName.Replace([string]$invalidCharacter, '_')
+            $originalName = $originalName.Replace([string]$invalidCharacter, '_')
         }
+        $safeMessageId = [string]$message.idMessage
+        foreach ($invalidCharacter in [IO.Path]::GetInvalidFileNameChars()) {
+            $safeMessageId = $safeMessageId.Replace([string]$invalidCharacter, '_')
+        }
+        $fileName = '{0}_{1}' -f $safeMessageId, $originalName
 
         $filePath = Join-Path $destination $fileName
         if ((Test-Path -LiteralPath $filePath) -and -not $Force) {
@@ -754,7 +748,12 @@ function Save-WhatsappChatMedia {
         }
 
         try {
-            Start-FileDownload -Uri $downloadUrl -OutFile $filePath -Description ('Downloading {0}' -f $fileName)
+            if (-not [string]::IsNullOrWhiteSpace($downloadUrl)) {
+                Start-FileDownload -Uri $downloadUrl -OutFile $filePath -Description ('Downloading {0}' -f $fileName)
+            }
+            else {
+                Get-WhatsappFile -ChatId $ChatId -MessageId ([string]$message.idMessage) -SavePath $filePath | Out-Null
+            }
             [void]$results.Add([PSCustomObject]@{
                 MessageId = [string]$message.idMessage
                 Path      = $filePath
