@@ -999,6 +999,31 @@ param(
 
 }
 
+function Get-WhatsappChats {
+<#
+    .SYNOPSIS
+    Retrieves the most recently active chats for the Green API instance.
+
+    .DESCRIPTION
+    Calls the Green API getChats service method. Results are returned in chat
+    activity order and include the chat ID, name, type and archive state.
+
+    .PARAMETER Count
+    Maximum number of active chats to return.
+
+    .EXAMPLE
+    Get-WhatsappChats -Count 100
+#>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 500)]
+        [int]$Count = 100
+    )
+
+    return Invoke-WhatsappApi -Endpoint "getChats" -Method "GET" -QueryParams @{ count = $Count }
+}
+
 function Get-Contacts {
 <#
     .SYNOPSIS
@@ -2336,4 +2361,4 @@ function Save-LocalChatMessage {
 
 # Export only primary functions
 Export-ModuleMember -Function `
-    New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage
+    New-WhatsappConfigFile,Get-WhatsappConfig,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Set-ChatRead,Get-WhatsappFile,Get-WhatsappChats,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage
