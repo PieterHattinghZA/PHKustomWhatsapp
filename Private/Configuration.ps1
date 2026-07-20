@@ -33,9 +33,9 @@ function Protect-WhatsappPath {
         $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
         $sid = $identity.User
         $item = Get-Item -LiteralPath $Path -Force
+        $security = $item.GetAccessControl()
 
         if ($item.PSIsContainer) {
-            $security = New-Object Security.AccessControl.DirectorySecurity
             $inheritance = [Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
             $rule = New-Object Security.AccessControl.FileSystemAccessRule(
                 $sid,
@@ -46,7 +46,6 @@ function Protect-WhatsappPath {
             )
         }
         else {
-            $security = New-Object Security.AccessControl.FileSecurity
             $rule = New-Object Security.AccessControl.FileSystemAccessRule(
                 $sid,
                 [Security.AccessControl.FileSystemRights]::FullControl,
@@ -54,14 +53,14 @@ function Protect-WhatsappPath {
             )
         }
 
-        $security.SetOwner($sid)
         $security.SetAccessRuleProtection($true, $false)
+        $security.PurgeAccessRules($sid)
         $security.AddAccessRule($rule)
-        Set-Acl -LiteralPath $Path -AclObject $security
+        $item.SetAccessControl($security)
     }
     catch {
-        Write-WhatsappLog -Level ERROR -Message ('Failed to secure path {0}: {1}' -f $Path, $_.Exception.Message)
-        throw
+        Write-WhatsappLog -Level WARN -Message ('Failed to secure path {0}: {1}' -f $Path, $_.Exception.Message)
+        Write-Verbose ('Failed to secure path {0}: {1}' -f $Path, $_.Exception.Message)
     }
 }
 
