@@ -9,9 +9,9 @@ BeforeAll {
 }
 
 Describe 'Module packaging' {
-    It 'has a valid version 4.0.0 manifest' {
+    It 'has a valid version 4.1.0 manifest' {
         $manifest = Test-ModuleManifest -Path $script:ManifestPath -ErrorAction Stop
-        $manifest.Version.ToString() | Should -Be '4.0.0'
+        $manifest.Version.ToString() | Should -Be '4.1.0'
     }
 
     It 'declares Windows PowerShell 5.1 compatibility' {
@@ -27,6 +27,18 @@ Describe 'Module packaging' {
     It 'contains every private implementation file' {
         Test-Path (Join-Path $script:RepositoryRoot 'Private\Configuration.ps1') | Should -BeTrue
         Test-Path (Join-Path $script:RepositoryRoot 'Private\ApiClient.ps1') | Should -BeTrue
+        Test-Path (Join-Path $script:RepositoryRoot 'assets\BlikbreinPyn-icon.png') | Should -BeTrue
+        Test-Path (Join-Path $script:RepositoryRoot 'assets\BlikbreinPyn.ico') | Should -BeTrue
+        Test-Path (Join-Path $script:RepositoryRoot 'assets\BlikbreinPyn-brand.png') | Should -BeTrue
+    }
+}
+
+Describe 'Export commands' {
+    It 'declares chat CSV, media and contact-info commands in the manifest' {
+        $data = Import-PowerShellDataFile -Path $script:ManifestPath
+        $data.FunctionsToExport | Should -Contain 'Export-WhatsappChat'
+        $data.FunctionsToExport | Should -Contain 'Save-WhatsappChatMedia'
+        $data.FunctionsToExport | Should -Contain 'Get-WhatsappContactInfo'
     }
 }
 
