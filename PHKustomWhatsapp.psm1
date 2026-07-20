@@ -1347,7 +1347,7 @@ function Update-WhatsappApiToken {
         throw 'Green API rotated the token but did not return a replacement token in a recognised field.'
     }
 
-    $secureToken = ConvertTo-SecureString -String $newToken -AsPlainText -Force
+    $secureToken = ConvertTo-WhatsappSecureString -PlainText $newToken
     $existingConfig = Get-Content -LiteralPath $script:ConfigFilePath -Raw | ConvertFrom-Json
     Save-WhatsappProtectedToken -InstanceId $global:InstanceId -SecureToken $secureToken -ApiUrl ([string]$existingConfig.apiUrl)
     $global:Token = $newToken
