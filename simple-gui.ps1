@@ -59,6 +59,7 @@ $script:LogDirectory = Join-Path $script:DataDirectory 'Logs'
 $script:AvatarDirectory = Join-Path $script:DataDirectory 'AvatarCache'
 $script:AssetDirectory = Join-Path $PSScriptRoot 'assets'
 $script:BrandIconPath = Join-Path $script:AssetDirectory 'BlikbreinPyn-icon.png'
+$script:BrandFullPath = Join-Path $script:AssetDirectory 'BlikbreinPyn-brand.png'
 $script:WindowIconPath = Join-Path $script:AssetDirectory 'BlikbreinPyn.ico'
 
 foreach ($directory in @($script:DataDirectory, $script:MediaDirectory, $script:LogDirectory, $script:AvatarDirectory)) {
@@ -425,6 +426,16 @@ $conversation.Padding = New-Object System.Windows.Forms.Padding(12)
 $conversation.BackColor = [System.Drawing.ColorTranslator]::FromHtml('#0B141A')
 $split.Panel2.Controls.Add($conversation)
 $conversation.BringToFront()
+
+$brandSplash = New-Object System.Windows.Forms.PictureBox
+$brandSplash.Size = New-Object System.Drawing.Size(360, 360)
+$brandSplash.SizeMode = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
+$brandSplash.Margin = New-Object System.Windows.Forms.Padding(40)
+if (Test-Path -LiteralPath $script:BrandFullPath -PathType Leaf) {
+    try { $brandSplash.Image = Get-ImageFromFile -Path $script:BrandFullPath }
+    catch { Write-GuiLog -Level WARN -Message ('Full brand image could not be loaded: {0}' -f $_.Exception.Message) }
+}
+$conversation.Controls.Add($brandSplash)
 
 $statusStrip = New-Object System.Windows.Forms.StatusStrip
 $statusLabel = New-Object System.Windows.Forms.ToolStripStatusLabel
@@ -974,6 +985,7 @@ $form.Add_FormClosing({
     Clear-RenderedImages
     foreach ($avatar in $script:AvatarLookup.Values) { if ($avatar) { $avatar.Dispose() } }
     if ($brandPicture.Image) { $brandPicture.Image.Dispose() }
+    if ($brandSplash.Image) { $brandSplash.Image.Dispose() }
 })
 
 try {
