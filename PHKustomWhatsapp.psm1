@@ -1,3 +1,5 @@
+
+
 <#
 .SYNOPSIS
 WhatsApp automation and reporting toolkit using Green API.
@@ -10,6 +12,7 @@ Description: PowerShell module for WhatsApp messaging, media, status, and contac
 #>
 
 # --- Global Configuration Variables (Loaded from external file) ---
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '')]
 $global:InstanceId = $null
 $global:Token = $null
 $global:BaseUrl = $null
@@ -33,6 +36,7 @@ foreach ($privateFile in $privateFiles) {
 }
 Initialize-WhatsappDataDirectory
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Clear-WhatsappFunctions {
     <#
     .SYNOPSIS
@@ -40,7 +44,7 @@ function Clear-WhatsappFunctions {
     .DESCRIPTION
     This function removes all WhatsApp-related functions from the session to allow for a clean reload or update.
     #>
-    $functionNames = @( 
+    $functionNames = @(
         'New-WhatsappConfigFile',
         'Clear-WhatsappLocalData',
         'Get-WhatsappConfig',
@@ -147,7 +151,8 @@ function Format-WhatsappNumber {
     # Check for South African specific formatting (starts with 0 or is 9 digits without 27)
     if ($cleanedNumber.StartsWith("0")) {
         $cleanedNumber = "27" + $cleanedNumber.Substring(1)
-    } elseif ($cleanedNumber.Length -eq 9 -and -not $cleanedNumber.StartsWith("27")) {
+    }
+    elseif ($cleanedNumber.Length -eq 9 -and -not $cleanedNumber.StartsWith("27")) {
         # Assuming 9 digits implies a missing '0' and needs '27' prefix for SA numbers
         $cleanedNumber = "27" + $cleanedNumber
     }
@@ -155,7 +160,8 @@ function Format-WhatsappNumber {
 
     if ($ReturnChatId) {
         return "$cleanedNumber@c.us"
-    } else {
+    }
+    else {
         return $cleanedNumber
     }
 }
@@ -192,7 +198,7 @@ function Format-PlainNumber {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Number,
 
         [ValidatePattern('^\d+$')]
@@ -201,10 +207,10 @@ function Format-PlainNumber {
 
     # Trim & remove chat/group suffixes
     $n = $Number.Trim()
-    $n = $n -replace '@c\.us$','' -replace '@g\.us$',''
+    $n = $n -replace '@c\.us$', '' -replace '@g\.us$', ''
 
     # Keep digits and plus only, then normalize prefixes
-    $n = $n -replace '[^\d\+]',''      # remove spaces, dashes, (), etc.
+    $n = $n -replace '[^\d\+]', ''      # remove spaces, dashes, (), etc.
     if ($n.StartsWith('+')) { $n = $n.Substring(1) }
     if ($n.StartsWith('00')) { $n = $n.Substring(2) }
 
@@ -214,7 +220,7 @@ function Format-PlainNumber {
     }
 
     # Final sanity: digits only
-    $n = $n -replace '[^\d]',''
+    $n = $n -replace '[^\d]', ''
 
     if (-not $n) {
         throw "Unable to normalize phone number from input: '$Number'"
@@ -224,7 +230,7 @@ function Format-PlainNumber {
 }
 
 function Send-Whatsapp {
-<#
+    <#
     .SYNOPSIS
     Sends a WhatsApp text message.
     .DESCRIPTION
@@ -242,11 +248,11 @@ function Send-Whatsapp {
     .EXAMPLE
     Send-Whatsapp -ChatId "27731234567@c.us" -Message "Hello again!"
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $true)]
@@ -256,7 +262,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -266,7 +273,7 @@ param(
     }
 
     $Body = @{
-        chatId = $targetChatId
+        chatId  = $targetChatId
         message = $Message
     }
     return Invoke-WhatsappApi -Endpoint "sendMessage" -Body $Body
@@ -274,7 +281,7 @@ param(
 }
 
 function Send-WhatsappFileByUpload {
-<#
+    <#
     .SYNOPSIS
     Sends a WhatsApp media message by uploading a local file.
     .DESCRIPTION
@@ -292,11 +299,11 @@ function Send-WhatsappFileByUpload {
     .EXAMPLE
     Send-WhatsappFileByUpload -Number "0731234567" -FilePath "C:\path\to\image.jpg" -Caption "My image"
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $true)]
@@ -309,7 +316,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -328,9 +336,9 @@ param(
     $fileName = [System.IO.Path]::GetFileName($FilePath)
 
     $Body = @{
-        chatId = $targetChatId
+        chatId   = $targetChatId
         fileName = $fileName
-        body = $base64File
+        body     = $base64File
     }
     if ($Caption) {
         $Body.caption = $Caption
@@ -340,7 +348,7 @@ param(
 }
 
 function Send-WhatsappFileByUrl {
-<#
+    <#
     .SYNOPSIS
     Sends a WhatsApp media message by providing a URL to the file.
     .DESCRIPTION
@@ -360,11 +368,11 @@ function Send-WhatsappFileByUrl {
     .EXAMPLE
     Send-WhatsappFileByUrl -Number "0731234567" -FileUrl "https://example.com/image.png" -FileName "example.png" -Caption "Online image"
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $true)]
@@ -380,7 +388,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -390,8 +399,8 @@ param(
     }
 
     $Body = @{
-        chatId = $targetChatId
-        urlFile = $FileUrl
+        chatId   = $targetChatId
+        urlFile  = $FileUrl
         fileName = $FileName
     }
     if ($Caption) {
@@ -402,7 +411,7 @@ param(
 }
 
 function Send-WhatsappLocation {
-<#
+    <#
     .SYNOPSIS
     Sends a WhatsApp location message.
     .DESCRIPTION
@@ -423,11 +432,11 @@ function Send-WhatsappLocation {
     .EXAMPLE
     Send-WhatsappLocation -Number "0731234567" -Latitude -25.747868 -Longitude 28.229271 -Name "Pretoria" -Address "Gauteng, South Africa"
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $true)]
@@ -446,7 +455,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -456,8 +466,8 @@ param(
     }
 
     $Body = @{
-        chatId = $targetChatId
-        latitude = $Latitude
+        chatId    = $targetChatId
+        latitude  = $Latitude
         longitude = $Longitude
     }
     if ($Name) { $Body.nameLocation = $Name }
@@ -467,7 +477,7 @@ param(
 }
 
 function Send-WhatsappContact {
-<#
+    <#
     .SYNOPSIS
     Sends a WhatsApp contact card (vCard).
     .DESCRIPTION
@@ -484,11 +494,11 @@ function Send-WhatsappContact {
     .EXAMPLE
     Send-WhatsappContact -Number "0731234567" -ContactNumber "27821234567" -ContactName "John Doe"
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $true)]
@@ -501,7 +511,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -511,7 +522,7 @@ param(
     }
 
     $Body = @{
-        chatId = $targetChatId
+        chatId  = $targetChatId
         contact = $ContactNumber
     }
     if ($ContactName) { $Body.name = $ContactName }
@@ -519,8 +530,9 @@ param(
 
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-LastIncomingMessages {
-<#
+    <#
     .SYNOPSIS
     Retrieves recent incoming WhatsApp messages.
     .DESCRIPTION
@@ -531,7 +543,7 @@ function Get-LastIncomingMessages {
     .EXAMPLE
     Get-LastIncomingMessages -Minutes 5
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [int]$Minutes
     )
@@ -540,8 +552,9 @@ param(
 
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-LastOutgoingMessages {
-<#
+    <#
     .SYNOPSIS
     Retrieves recent outgoing WhatsApp messages.
     .DESCRIPTION
@@ -552,7 +565,7 @@ function Get-LastOutgoingMessages {
     .EXAMPLE
     Get-LastOutgoingMessages -Minutes 5
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [int]$Minutes
     )
@@ -562,7 +575,7 @@ param(
 }
 
 function Get-ChatHistory {
-<#
+    <#
     .SYNOPSIS
     Retrieves chat history for a specific WhatsApp chat.
     .DESCRIPTION
@@ -577,11 +590,11 @@ function Get-ChatHistory {
     .EXAMPLE
     Get-ChatHistory -Number "0731234567" -Count 10
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $true)]
@@ -591,7 +604,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -602,14 +616,14 @@ param(
 
     $Body = @{
         chatId = $targetChatId
-        count = $Count
+        count  = $Count
     }
     return Invoke-WhatsappApi -Endpoint "getChatHistory" -Body $Body
 
 }
 
 function Export-WhatsappChat {
-<#
+    <#
     .SYNOPSIS
     Exports a chat history to a UTF-8 CSV file.
 
@@ -651,21 +665,21 @@ function Export-WhatsappChat {
         catch { Write-WhatsappLog -Level WARN -Message ('Invalid timestamp on message {0}: {1}' -f $message.idMessage, $_.Exception.Message) }
 
         [PSCustomObject][ordered]@{
-            DateTime         = if ($messageTime) { $messageTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '' }
-            Direction        = [string]$message.type
-            ChatId           = [string]$message.chatId
-            SenderId         = [string]$message.senderId
-            SenderName       = if ($message.senderContactName) { [string]$message.senderContactName } else { [string]$message.senderName }
-            MessageId        = [string]$message.idMessage
-            MessageType      = [string]$message.typeMessage
-            Status           = [string]$message.statusMessage
-            Text             = [string]$message.textMessage
-            Caption          = [string]$message.caption
-            FileName         = [string]$message.fileName
-            MimeType         = [string]$message.mimeType
-            DownloadUrl      = [string]$message.downloadUrl
-            IsDeleted        = [bool]$message.isDeleted
-            IsEdited         = [bool]$message.isEdited
+            DateTime    = if ($messageTime) { $messageTime.ToString('yyyy-MM-dd HH:mm:ss') } else { '' }
+            Direction   = [string]$message.type
+            ChatId      = [string]$message.chatId
+            SenderId    = [string]$message.senderId
+            SenderName  = if ($message.senderContactName) { [string]$message.senderContactName } else { [string]$message.senderName }
+            MessageId   = [string]$message.idMessage
+            MessageType = [string]$message.typeMessage
+            Status      = [string]$message.statusMessage
+            Text        = [string]$message.textMessage
+            Caption     = [string]$message.caption
+            FileName    = [string]$message.fileName
+            MimeType    = [string]$message.mimeType
+            DownloadUrl = [string]$message.downloadUrl
+            IsDeleted   = [bool]$message.isDeleted
+            IsEdited    = [bool]$message.isEdited
         }
     }
 
@@ -674,8 +688,9 @@ function Export-WhatsappChat {
     return Get-Item -LiteralPath $destination
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Save-WhatsappChatMedia {
-<#
+    <#
     .SYNOPSIS
     Downloads every available media attachment from a chat history.
 
@@ -692,6 +707,7 @@ function Save-WhatsappChatMedia {
     Replaces existing files instead of skipping them.
 #>
     [CmdletBinding()]
+    [OutputType([PSCustomObject[]])]
     param(
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$ChatId,
         [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$DestinationPath,
@@ -704,7 +720,7 @@ function Save-WhatsappChatMedia {
         New-Item -Path $destination -ItemType Directory -Force | Out-Null
     }
 
-    $mediaTypes = @('imageMessage','videoMessage','documentMessage','audioMessage','stickerMessage')
+    $mediaTypes = @('imageMessage', 'videoMessage', 'documentMessage', 'audioMessage', 'stickerMessage')
     $history = @(Get-ChatHistory -ChatId $ChatId -Count $Count)
     $results = New-Object Collections.ArrayList
 
@@ -715,19 +731,19 @@ function Save-WhatsappChatMedia {
         if (-not $extension) {
             switch -Regex ([string]$message.mimeType) {
                 '^image/jpeg' { $extension = '.jpg'; break }
-                '^image/png'  { $extension = '.png'; break }
-                '^image/gif'  { $extension = '.gif'; break }
+                '^image/png' { $extension = '.png'; break }
+                '^image/gif' { $extension = '.gif'; break }
                 '^image/webp' { $extension = '.webp'; break }
-                '^video/mp4'        { $extension = '.mp4'; break }
-                '^video/quicktime'  { $extension = '.mov'; break }
-                '^video/x-msvideo'  { $extension = '.avi'; break }
+                '^video/mp4' { $extension = '.mp4'; break }
+                '^video/quicktime' { $extension = '.mov'; break }
+                '^video/x-msvideo' { $extension = '.avi'; break }
                 '^video/x-matroska' { $extension = '.mkv'; break }
-                '^video/webm'       { $extension = '.webm'; break }
-                '^video/3gpp'       { $extension = '.3gp'; break }
-                '^video/3gpp2'      { $extension = '.3g2'; break }
-                '^audio/ogg'        { $extension = '.ogg'; break }
+                '^video/webm' { $extension = '.webm'; break }
+                '^video/3gpp' { $extension = '.3gp'; break }
+                '^video/3gpp2' { $extension = '.3g2'; break }
+                '^audio/ogg' { $extension = '.ogg'; break }
                 '^audio/mpeg' { $extension = '.mp3'; break }
-                default       { $extension = '.bin' }
+                default { $extension = '.bin' }
             }
         }
 
@@ -745,11 +761,11 @@ function Save-WhatsappChatMedia {
         $filePath = Join-Path $destination $fileName
         if ((Test-Path -LiteralPath $filePath) -and -not $Force) {
             [void]$results.Add([PSCustomObject]@{
-                MessageId = [string]$message.idMessage
-                Path      = $filePath
-                Status    = 'SkippedExisting'
-                Error     = $null
-            })
+                    MessageId = [string]$message.idMessage
+                    Path      = $filePath
+                    Status    = 'SkippedExisting'
+                    Error     = $null
+                })
             continue
         }
 
@@ -761,20 +777,20 @@ function Save-WhatsappChatMedia {
                 Get-WhatsappFile -ChatId $ChatId -MessageId ([string]$message.idMessage) -SavePath $filePath | Out-Null
             }
             [void]$results.Add([PSCustomObject]@{
-                MessageId = [string]$message.idMessage
-                Path      = $filePath
-                Status    = 'Downloaded'
-                Error     = $null
-            })
+                    MessageId = [string]$message.idMessage
+                    Path      = $filePath
+                    Status    = 'Downloaded'
+                    Error     = $null
+                })
         }
         catch {
             Write-WhatsappLog -Level ERROR -Message ('Media download failed for {0}: {1}' -f $message.idMessage, $_.Exception.Message)
             [void]$results.Add([PSCustomObject]@{
-                MessageId = [string]$message.idMessage
-                Path      = $filePath
-                Status    = 'Failed'
-                Error     = $_.Exception.Message
-            })
+                    MessageId = [string]$message.idMessage
+                    Path      = $filePath
+                    Status    = 'Failed'
+                    Error     = $_.Exception.Message
+                })
         }
     }
 
@@ -783,7 +799,7 @@ function Save-WhatsappChatMedia {
 }
 
 function Set-ChatRead {
-<#
+    <#
     .SYNOPSIS
     Marks a WhatsApp chat as read.
     .DESCRIPTION
@@ -796,18 +812,19 @@ function Set-ChatRead {
     .EXAMPLE
     Set-ChatRead -Number "0731234567"
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId
     )
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -855,23 +872,26 @@ function Start-FileDownload {
                 if ($totalBytes -gt 0) {
                     $percent = [Math]::Round(($totalRead / $totalBytes) * 100)
                     Write-Progress -Activity $Description -Status "$percent% complete ($([Math]::Round($totalRead / 1MB, 2)) MB of $([Math]::Round($totalBytes / 1MB, 2)) MB)" -PercentComplete $percent
-                } else {
+                }
+                else {
                     Write-Progress -Activity $Description -Status "Downloaded $([Math]::Round($totalRead / 1MB, 2)) MB (unknown total size)"
                 }
             }
-        } finally {
+        }
+        finally {
             Write-Progress -Activity $Description -Completed
             $ProgressPreference = $localProgressPreference
             $outputStream.Dispose()
             $inputStream.Dispose()
         }
-    } finally {
+    }
+    finally {
         $client.Dispose()
     }
 }
 
 function Get-WhatsappFile {
-<#
+    <#
     .SYNOPSIS
     Gets a file from an incoming WhatsApp message.
     .DESCRIPTION
@@ -886,7 +906,7 @@ function Get-WhatsappFile {
     .EXAMPLE
     Get-WhatsappFile -ChatId "27731234567@c.us" -MessageId "ABCD12345" -SavePath "C:\temp\downloaded_file.jpg"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$ChatId,
 
@@ -898,7 +918,7 @@ param(
     )
 
     $body = @{
-        chatId = $ChatId
+        chatId    = $ChatId
         idMessage = $MessageId
     }
 
@@ -906,14 +926,16 @@ param(
     if ($response -and $response.downloadUrl) {
         Start-FileDownload -Uri $response.downloadUrl -OutFile $SavePath -Description "Downloading WhatsApp attachment"
         return $true
-    } else {
+    }
+    else {
         throw "Failed to retrieve download URL from Green API response: $($response | ConvertTo-Json -Depth 2 -Compress)"
     }
 
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-WhatsappChats {
-<#
+    <#
     .SYNOPSIS
     Retrieves the most recently active chats for the Green API instance.
 
@@ -938,7 +960,7 @@ function Get-WhatsappChats {
 }
 
 function Get-WhatsappContactInfo {
-<#
+    <#
     .SYNOPSIS
     Retrieves profile and avatar information for a contact or group chat.
 
@@ -955,8 +977,9 @@ function Get-WhatsappContactInfo {
     return Invoke-WhatsappApi -Endpoint "getContactInfo" -Body @{ chatId = $ChatId }
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-Contacts {
-<#
+    <#
     .SYNOPSIS
     Retrieves all WhatsApp contacts for the instance.
     .DESCRIPTION
@@ -971,7 +994,7 @@ function Get-Contacts {
 }
 
 function Test-WhatsappAvailability {
-<#
+    <#
     .SYNOPSIS
     Checks if a phone number is registered on WhatsApp.
 
@@ -991,7 +1014,7 @@ function Test-WhatsappAvailability {
     .EXAMPLE
     Test-WhatsappAvailability -Number "0731234567"
     #>
-[CmdletBinding()]
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Number
@@ -1007,7 +1030,7 @@ function Test-WhatsappAvailability {
 }
 
 function Get-WhatsappInstanceStatus {
-<#
+    <#
     .SYNOPSIS
     Gets the current operational status of the Green API instance.
     .DESCRIPTION
@@ -1022,7 +1045,7 @@ function Get-WhatsappInstanceStatus {
 }
 
 function Get-WhatsappMessageStatus {
-<#
+    <#
     .SYNOPSIS
     Gets the delivery and read status of an outgoing WhatsApp message.
     .DESCRIPTION
@@ -1032,7 +1055,7 @@ function Get-WhatsappMessageStatus {
     .EXAMPLE
     Get-WhatsappMessageStatus -MessageId "ABCD12345"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$MessageId
     )
@@ -1042,7 +1065,7 @@ param(
 }
 
 function Receive-WhatsappNotification {
-<#
+    <#
     .SYNOPSIS
     Fetches the next available notification from the incoming queue.
     .DESCRIPTION
@@ -1058,7 +1081,7 @@ function Receive-WhatsappNotification {
 }
 
 function Remove-WhatsappNotification {
-<#
+    <#
     .SYNOPSIS
     Deletes a specific notification from the queue.
     .DESCRIPTION
@@ -1069,7 +1092,7 @@ function Remove-WhatsappNotification {
     .EXAMPLE
     Remove-WhatsappNotification -ReceiptId "RECEIPT_XYZ"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$ReceiptId
     )
@@ -1078,8 +1101,9 @@ param(
 
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Get-WhatsappSettings {
-<#
+    <#
     .SYNOPSIS
     Retrieve the current settings of the instance.
     .DESCRIPTION
@@ -1094,8 +1118,9 @@ function Get-WhatsappSettings {
 
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Set-WhatsappSettings {
-<#
+    <#
     .SYNOPSIS
     Configure instance settings.
     .DESCRIPTION
@@ -1153,7 +1178,7 @@ function Set-WhatsappSettings {
     .EXAMPLE
     Set-WhatsappSettings -IncomingWebhook $true -OutgoingWebhook $true -DelaySendMessagesMilliseconds 1000
     #>
-param(
+    param(
         [Parameter(Mandatory = $false)] [string]$WebhookUrl,
         [Parameter(Mandatory = $false)] [int]$DelaySendMessagesMilliseconds,
         [Parameter(Mandatory = $false)] [bool]$OutgoingWebhook,
@@ -1215,7 +1240,7 @@ param(
 }
 
 function Get-WhatsappInstanceState {
-<#
+    <#
     .SYNOPSIS
     Get the current operational state of the instance.
     .DESCRIPTION
@@ -1231,7 +1256,7 @@ function Get-WhatsappInstanceState {
 }
 
 function Restart-WhatsappInstance {
-<#
+    <#
     .SYNOPSIS
     Reboot the Green API instance.
     .DESCRIPTION
@@ -1247,7 +1272,7 @@ function Restart-WhatsappInstance {
 }
 
 function Disconnect-WhatsappInstance {
-<#
+    <#
     .SYNOPSIS
     Log out the WhatsApp account from the instance.
     .DESCRIPTION
@@ -1263,7 +1288,7 @@ function Disconnect-WhatsappInstance {
 }
 
 function Get-WhatsappQrCode {
-<#
+    <#
     .SYNOPSIS
     Get the QR code for instance authorization.
     .DESCRIPTION
@@ -1281,7 +1306,7 @@ function Get-WhatsappQrCode {
 }
 
 function Get-WhatsappAuthorizationCode {
-<#
+    <#
     .SYNOPSIS
     Authorize instance using a phone number and code.
     .DESCRIPTION
@@ -1292,7 +1317,7 @@ function Get-WhatsappAuthorizationCode {
     .EXAMPLE
     Get-WhatsappAuthorizationCode -PhoneNumber "27731234567"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$PhoneNumber
     )
@@ -1302,7 +1327,7 @@ param(
 }
 
 function Set-WhatsappProfilePicture {
-<#
+    <#
     .SYNOPSIS
     Set the WhatsApp account's profile picture.
     .DESCRIPTION
@@ -1314,7 +1339,7 @@ function Set-WhatsappProfilePicture {
     .EXAMPLE
     Set-WhatsappProfilePicture -FilePath "C:\path\to\profile.jpg"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$FilePath
     )
@@ -1335,8 +1360,9 @@ param(
 
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '')]
 function Update-WhatsappApiToken {
-<#
+    <#
     .SYNOPSIS
     Rotates the Green API token and stores the replacement using Windows DPAPI.
 #>
@@ -1362,7 +1388,7 @@ function Update-WhatsappApiToken {
 }
 
 function Get-WhatsappWaAccountInfo {
-<#
+    <#
     .SYNOPSIS
     Retrieve detailed WhatsApp account information.
     .DESCRIPTION
@@ -1378,7 +1404,7 @@ function Get-WhatsappWaAccountInfo {
 }
 
 function Send-WhatsappPoll {
-<#
+    <#
     .SYNOPSIS
     Send a WhatsApp poll message.
     .DESCRIPTION
@@ -1399,11 +1425,11 @@ function Send-WhatsappPoll {
     .EXAMPLE
     Send-WhatsappPoll -Number "0731234567" -Message "What's your favorite color?" -Options @("Red", "Blue", "Green") -MultipleAnswers $false
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $true)]
@@ -1422,7 +1448,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -1440,9 +1467,9 @@ param(
     }
 
     $Body = @{
-        chatId = $targetChatId
-        message = $Message
-        options = $Options
+        chatId          = $targetChatId
+        message         = $Message
+        options         = $Options
         multipleAnswers = $MultipleAnswers
     }
     if ($QuotedMessageId) { $Body.quotedMessageId = $QuotedMessageId }
@@ -1451,7 +1478,7 @@ param(
 }
 
 function Send-WhatsappForwardedMessage {
-<#
+    <#
     .SYNOPSIS
     Send one or more forwarded messages to a chat.
     .DESCRIPTION
@@ -1467,7 +1494,7 @@ function Send-WhatsappForwardedMessage {
     .EXAMPLE
     Send-WhatsappForwardedMessage -ChatId "27731234567@c.us" -ChatIdFrom "27821234567@c.us" -Messages @("MSG1", "MSG2")
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$ChatId,
 
@@ -1482,17 +1509,18 @@ param(
     )
 
     $Body = @{
-        chatId = $ChatId
+        chatId     = $ChatId
         chatIdFrom = $ChatIdFrom
-        messages = $Messages
+        messages   = $Messages
     }
     if ($TypingTime) { $Body.typingTime = $TypingTime }
     return Invoke-WhatsappApi -Endpoint "forwardMessages" -Body $Body
 
 }
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
 function Send-WhatsappInteractiveButtons {
-<#
+    <#
     .SYNOPSIS
     Send a message with interactive buttons.
     .DESCRIPTION
@@ -1519,11 +1547,11 @@ function Send-WhatsappInteractiveButtons {
     )
     Send-WhatsappInteractiveButtons -Number "0731234567" -Body "Please choose an option:" -Buttons $buttons -Header "Action Required"
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $true)]
@@ -1542,7 +1570,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -1556,8 +1585,8 @@ param(
     }
 
     $BodyPayload = @{
-        chatId = $targetChatId
-        body = $Body
+        chatId  = $targetChatId
+        body    = $Body
         buttons = $Buttons
     }
     if ($Header) { $BodyPayload.header = $Header }
@@ -1567,7 +1596,7 @@ param(
 }
 
 function Send-WhatsappTypingNotification {
-<#
+    <#
     .SYNOPSIS
     Send a typing or recording notification to a chat.
     .DESCRIPTION
@@ -1584,11 +1613,11 @@ function Send-WhatsappTypingNotification {
     .EXAMPLE
     Send-WhatsappTypingNotification -Number "0731234567" -TypingTime 5 -TypingType "typing"
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $false)]
@@ -1603,7 +1632,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -1613,7 +1643,7 @@ param(
     }
 
     $Body = @{
-        chatId = $targetChatId
+        chatId     = $targetChatId
         typingTime = $TypingTime
         typingType = $TypingType
     }
@@ -1622,7 +1652,7 @@ param(
 }
 
 function Get-WhatsappChatMessage {
-<#
+    <#
     .SYNOPSIS
     Retrieve a specific message by ID from a chat.
     .DESCRIPTION
@@ -1637,11 +1667,11 @@ function Get-WhatsappChatMessage {
     .EXAMPLE
     Get-WhatsappChatMessage -Number "0731234567" -IdMessage "MESSAGE_ID_ABC"
     #>
-param(
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+    param(
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$Number,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ChatId,
 
         [Parameter(Mandatory = $true)]
@@ -1651,7 +1681,8 @@ param(
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $Number
-    } else {
+    }
+    else {
         $targetChatId = $ChatId
     }
 
@@ -1661,7 +1692,7 @@ param(
     }
 
     $Body = @{
-        chatId = $targetChatId
+        chatId    = $targetChatId
         idMessage = $IdMessage
     }
     return Invoke-WhatsappApi -Endpoint "getMessage" -Body $Body
@@ -1669,7 +1700,7 @@ param(
 }
 
 function Get-WhatsappMessagesCount {
-<#
+    <#
     .SYNOPSIS
     Get the number of messages in the sending queue.
     .DESCRIPTION
@@ -1685,7 +1716,7 @@ function Get-WhatsappMessagesCount {
 }
 
 function Get-WhatsappMessagesQueue {
-<#
+    <#
     .SYNOPSIS
     Show details of messages currently in the sending queue.
     .DESCRIPTION
@@ -1701,7 +1732,7 @@ function Get-WhatsappMessagesQueue {
 }
 
 function Clear-WhatsappMessagesQueue {
-<#
+    <#
     .SYNOPSIS
     Clear all messages from the sending queue.
     .DESCRIPTION
@@ -1717,7 +1748,7 @@ function Clear-WhatsappMessagesQueue {
 }
 
 function Get-WhatsappWebhooksCount {
-<#
+    <#
     .SYNOPSIS
     Get the number of webhooks in the incoming queue.
     .DESCRIPTION
@@ -1726,14 +1757,14 @@ function Get-WhatsappWebhooksCount {
     .EXAMPLE
     Get-WhatsappWebhooksCount
     #>
-param()
+    param()
 
     return Invoke-WhatsappApi -Endpoint "getWebhooksCount" -Method "GET"
 
 }
 
 function Clear-WhatsappWebhooksQueue {
-<#
+    <#
     .SYNOPSIS
     Clear all webhooks from the incoming queue.
     .DESCRIPTION
@@ -1742,14 +1773,14 @@ function Clear-WhatsappWebhooksQueue {
     .EXAMPLE
     Clear-WhatsappWebhooksQueue
     #>
-param()
+    param()
 
     return Invoke-WhatsappApi -Endpoint "clearWebhooksQueue" -Method "DELETE"
 
 }
 
 function New-WhatsappGroup {
-<#
+    <#
     .SYNOPSIS
     Create a new WhatsApp group chat.
     .DESCRIPTION
@@ -1765,14 +1796,14 @@ function New-WhatsappGroup {
     .EXAMPLE
     New-WhatsappGroup -GroupName "My New Team" -ParticipantNumbers @("0731234567", "0749876543")
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$GroupName,
 
-        [Parameter(ParameterSetName='ByNumbers', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByNumbers', Mandatory = $true)]
         [string[]]$ParticipantNumbers,
 
-        [Parameter(ParameterSetName='ByChatIds', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatIds', Mandatory = $true)]
         [string[]]$ParticipantChatIds
     )
 
@@ -1786,7 +1817,8 @@ param(
         foreach ($num in $ParticipantNumbers) {
             $targetChatIds += Format-WhatsappNumber -Number $num
         }
-    } else {
+    }
+    else {
         $targetChatIds = $ParticipantChatIds
     }
 
@@ -1797,14 +1829,14 @@ param(
 
     $Body = @{
         groupName = $GroupName
-        chatIds = $targetChatIds
+        chatIds   = $targetChatIds
     }
     return Invoke-WhatsappApi -Endpoint "createGroup" -Body $Body
 
 }
 
 function Set-WhatsappGroupName {
-<#
+    <#
     .SYNOPSIS
     Change the name of a group chat.
     .DESCRIPTION
@@ -1816,7 +1848,7 @@ function Set-WhatsappGroupName {
     .EXAMPLE
     Set-WhatsappGroupName -GroupId "1234567890-123456@g.us" -NewGroupName "Updated Team Name"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
@@ -1830,7 +1862,7 @@ param(
     }
 
     $Body = @{
-        groupId = $GroupId
+        groupId   = $GroupId
         groupName = $NewGroupName
     }
     return Invoke-WhatsappApi -Endpoint "updateGroupName" -Body $Body
@@ -1838,7 +1870,7 @@ param(
 }
 
 function Get-WhatsappGroupData {
-<#
+    <#
     .SYNOPSIS
     Retrieve detailed data for a specific group chat.
     .DESCRIPTION
@@ -1849,7 +1881,7 @@ function Get-WhatsappGroupData {
     .EXAMPLE
     Get-WhatsappGroupData -GroupId "1234567890-123456@g.us"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId
     )
@@ -1859,7 +1891,7 @@ param(
 }
 
 function Add-WhatsappGroupParticipant {
-<#
+    <#
     .SYNOPSIS
     Add a participant to a group chat.
     .DESCRIPTION
@@ -1876,21 +1908,22 @@ function Add-WhatsappGroupParticipant {
     .EXAMPLE
     Add-WhatsappGroupParticipant -GroupId "1234567890-123456@g.us" -ParticipantNumber "0731234567"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$ParticipantNumber,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ParticipantChatId
     )
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $ParticipantNumber
-    } else {
+    }
+    else {
         $targetChatId = $ParticipantChatId
     }
 
@@ -1900,7 +1933,7 @@ param(
     }
 
     $Body = @{
-        groupId = $GroupId
+        groupId           = $GroupId
         participantChatId = $targetChatId
     }
     return Invoke-WhatsappApi -Endpoint "addGroupParticipant" -Body $Body
@@ -1908,7 +1941,7 @@ param(
 }
 
 function Remove-WhatsappGroupParticipant {
-<#
+    <#
     .SYNOPSIS
     Remove a participant from a group chat.
     .DESCRIPTION
@@ -1923,21 +1956,22 @@ function Remove-WhatsappGroupParticipant {
     .EXAMPLE
     Remove-WhatsappGroupParticipant -GroupId "1234567890-123456@g.us" -ParticipantNumber "0731234567"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$ParticipantNumber,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ParticipantChatId
     )
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $ParticipantNumber
-    } else {
+    }
+    else {
         $targetChatId = $ParticipantChatId
     }
 
@@ -1947,7 +1981,7 @@ param(
     }
 
     $Body = @{
-        groupId = $GroupId
+        groupId           = $GroupId
         participantChatId = $targetChatId
     }
     return Invoke-WhatsappApi -Endpoint "removeGroupParticipant" -Body $Body
@@ -1955,7 +1989,7 @@ param(
 }
 
 function Set-WhatsappGroupAdmin {
-<#
+    <#
     .SYNOPSIS
     Grant administrator rights to a group participant.
     .DESCRIPTION
@@ -1970,21 +2004,22 @@ function Set-WhatsappGroupAdmin {
     .EXAMPLE
     Set-WhatsappGroupAdmin -GroupId "1234567890-123456@g.us" -ParticipantNumber "0731234567"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$ParticipantNumber,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ParticipantChatId
     )
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $ParticipantNumber
-    } else {
+    }
+    else {
         $targetChatId = $ParticipantChatId
     }
 
@@ -1994,7 +2029,7 @@ param(
     }
 
     $Body = @{
-        groupId = $GroupId
+        groupId           = $GroupId
         participantChatId = $targetChatId
     }
     return Invoke-WhatsappApi -Endpoint "setGroupAdmin" -Body $Body
@@ -2002,7 +2037,7 @@ param(
 }
 
 function Remove-WhatsappGroupAdmin {
-<#
+    <#
     .SYNOPSIS
     Remove administrator rights from a group participant.
     .DESCRIPTION
@@ -2017,21 +2052,22 @@ function Remove-WhatsappGroupAdmin {
     .EXAMPLE
     Remove-WhatsappGroupAdmin -GroupId "1234567890-123456@g.us" -ParticipantNumber "0731234567"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
-        [Parameter(ParameterSetName='ByNumber', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByNumber', Mandatory = $true)]
         [string]$ParticipantNumber,
 
-        [Parameter(ParameterSetName='ByChatId', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'ByChatId', Mandatory = $true)]
         [string]$ParticipantChatId
     )
 
     $targetChatId = $null
     if ($PSCmdlet.ParameterSetName -eq 'ByNumber') {
         $targetChatId = Format-WhatsappNumber -Number $ParticipantNumber
-    } else {
+    }
+    else {
         $targetChatId = $ParticipantChatId
     }
 
@@ -2041,7 +2077,7 @@ param(
     }
 
     $Body = @{
-        groupId = $GroupId
+        groupId           = $GroupId
         participantChatId = $targetChatId
     }
     return Invoke-WhatsappApi -Endpoint "removeAdmin" -Body $Body
@@ -2049,7 +2085,7 @@ param(
 }
 
 function Set-WhatsappGroupPicture {
-<#
+    <#
     .SYNOPSIS
     Set the profile picture for a group chat.
     .DESCRIPTION
@@ -2061,7 +2097,7 @@ function Set-WhatsappGroupPicture {
     .EXAMPLE
     Set-WhatsappGroupPicture -GroupId "1234567890-123456@g.us" -FilePath "C:\path\to\group_pic.jpg"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId,
 
@@ -2083,14 +2119,14 @@ param(
 
     $Body = @{
         groupId = $GroupId
-        file = $base64File
+        file    = $base64File
     }
     return Invoke-WhatsappApi -Endpoint "setGroupPicture" -Body $Body
 
 }
 
 function Exit-WhatsappGroup {
-<#
+    <#
     .SYNOPSIS
     Exit a group chat.
     .DESCRIPTION
@@ -2100,7 +2136,7 @@ function Exit-WhatsappGroup {
     .EXAMPLE
     Exit-WhatsappGroup -GroupId "1234567890-123456@g.us"
     #>
-param(
+    param(
         [Parameter(Mandatory = $true)]
         [string]$GroupId
     )
@@ -2110,7 +2146,7 @@ param(
 }
 
 function Send-WhatsappVoiceStatus {
-<#
+    <#
     .SYNOPSIS
     Sends a voice note as a WhatsApp status (beta feature).
     .PARAMETER FileUrl
@@ -2122,7 +2158,7 @@ function Send-WhatsappVoiceStatus {
     .PARAMETER ParticipantChatIds
     Optional chat IDs allowed to view this status. Specify only one of ParticipantNumbers or ParticipantChatIds.
     #>
-[CmdletBinding()]
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -2144,7 +2180,7 @@ function Send-WhatsappVoiceStatus {
     }
 
     $Body = @{
-        fileUrl = $FileUrl
+        fileUrl  = $FileUrl
         fileName = $FileName
     }
     if ($ParticipantNumbers) { $body.participantNumbers = $ParticipantNumbers }
@@ -2155,7 +2191,7 @@ function Send-WhatsappVoiceStatus {
 }
 
 function Send-WhatsappMediaStatus {
-<#
+    <#
     .SYNOPSIS
     Sends an image or video as a WhatsApp status (beta feature).
     .PARAMETER FileUrl
@@ -2169,7 +2205,7 @@ function Send-WhatsappMediaStatus {
     .PARAMETER ParticipantChatIds
     Optional chat IDs allowed to view this status. Specify only one of ParticipantNumbers or ParticipantChatIds.
     #>
-[CmdletBinding()]
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -2245,7 +2281,8 @@ function Get-LocalChatHistory {
             }
         }
         return $selected
-    } catch {
+    }
+    catch {
         Write-Error "Failed to read local chat database: $_"
         return @()
     }
@@ -2278,7 +2315,8 @@ function Save-LocalChatMessage {
             if ($raw) {
                 $history = @(ConvertFrom-Json $raw)
             }
-        } catch {
+        }
+        catch {
             Write-WhatsappLog -Level WARN -Message ('Could not read local chat history {0}: {1}' -f $dbPath, $_.Exception.Message)
         }
     }
@@ -2298,11 +2336,12 @@ function Save-LocalChatMessage {
 
     try {
         $history | ConvertTo-Json -Depth 5 | Set-Content -Path $dbPath -Force -Encoding UTF8
-    } catch {
+    }
+    catch {
         Write-Error "Failed to write local database: $_"
     }
 }
 
 # Export only primary functions
 Export-ModuleMember -Function `
-    New-WhatsappConfigFile,Get-WhatsappConfig,Clear-WhatsappLocalData,Send-Whatsapp,Send-WhatsappFileByUpload,Send-WhatsappFileByUrl,Send-WhatsappLocation,Send-WhatsappContact,Get-LastIncomingMessages,Get-LastOutgoingMessages,Get-ChatHistory,Export-WhatsappChat,Save-WhatsappChatMedia,Set-ChatRead,Get-WhatsappFile,Get-WhatsappChats,Get-WhatsappContactInfo,Get-Contacts,Test-WhatsappAvailability,Get-WhatsappInstanceStatus,Get-WhatsappMessageStatus,Receive-WhatsappNotification,Remove-WhatsappNotification,Get-WhatsappSettings,Set-WhatsappSettings,Get-WhatsappInstanceState,Restart-WhatsappInstance,Disconnect-WhatsappInstance,Get-WhatsappQrCode,Get-WhatsappAuthorizationCode,Set-WhatsappProfilePicture,Update-WhatsappApiToken,Get-WhatsappWaAccountInfo,Send-WhatsappPoll,Send-WhatsappForwardedMessage,Send-WhatsappInteractiveButtons,Send-WhatsappTypingNotification,Get-WhatsappChatMessage,Get-WhatsappMessagesCount,Get-WhatsappMessagesQueue,Clear-WhatsappMessagesQueue,Get-WhatsappWebhooksCount,Clear-WhatsappWebhooksQueue,New-WhatsappGroup,Set-WhatsappGroupName,Get-WhatsappGroupData,Add-WhatsappGroupParticipant,Remove-WhatsappGroupParticipant,Set-WhatsappGroupAdmin,Remove-WhatsappGroupAdmin,Set-WhatsappGroupPicture,Exit-WhatsappGroup,Send-WhatsappVoiceStatus,Send-WhatsappMediaStatus,Get-LocalChatHistory,Save-LocalChatMessage
+    New-WhatsappConfigFile, Get-WhatsappConfig, Clear-WhatsappLocalData, Send-Whatsapp, Send-WhatsappFileByUpload, Send-WhatsappFileByUrl, Send-WhatsappLocation, Send-WhatsappContact, Get-LastIncomingMessages, Get-LastOutgoingMessages, Get-ChatHistory, Export-WhatsappChat, Save-WhatsappChatMedia, Set-ChatRead, Get-WhatsappFile, Get-WhatsappChats, Get-WhatsappContactInfo, Get-Contacts, Test-WhatsappAvailability, Get-WhatsappInstanceStatus, Get-WhatsappMessageStatus, Receive-WhatsappNotification, Remove-WhatsappNotification, Get-WhatsappSettings, Set-WhatsappSettings, Get-WhatsappInstanceState, Restart-WhatsappInstance, Disconnect-WhatsappInstance, Get-WhatsappQrCode, Get-WhatsappAuthorizationCode, Set-WhatsappProfilePicture, Update-WhatsappApiToken, Get-WhatsappWaAccountInfo, Send-WhatsappPoll, Send-WhatsappForwardedMessage, Send-WhatsappInteractiveButtons, Send-WhatsappTypingNotification, Get-WhatsappChatMessage, Get-WhatsappMessagesCount, Get-WhatsappMessagesQueue, Clear-WhatsappMessagesQueue, Get-WhatsappWebhooksCount, Clear-WhatsappWebhooksQueue, New-WhatsappGroup, Set-WhatsappGroupName, Get-WhatsappGroupData, Add-WhatsappGroupParticipant, Remove-WhatsappGroupParticipant, Set-WhatsappGroupAdmin, Remove-WhatsappGroupAdmin, Set-WhatsappGroupPicture, Exit-WhatsappGroup, Send-WhatsappVoiceStatus, Send-WhatsappMediaStatus, Get-LocalChatHistory, Save-LocalChatMessage
