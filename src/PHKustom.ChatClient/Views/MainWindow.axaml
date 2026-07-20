@@ -21,7 +21,7 @@
             <DataTemplate x:DataType="models:ChatSummary">
               <Grid Margin="8" ColumnDefinitions="48,*">
                 <Border Width="42" Height="42" CornerRadius="21" Background="#2A7F76">
-                  <TextBlock Text="{Binding DisplayName[0]}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" />
+                  <TextBlock Text="{Binding Initial}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" />
                 </Border>
                 <StackPanel Grid.Column="1" Margin="10,0,0,0">
                   <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
