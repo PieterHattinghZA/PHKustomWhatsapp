@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PHKustom.ChatClient.ViewModels"
+        xmlns:models="using:PHKustom.ChatClient.Models"
+        x:Class="PHKustom.ChatClient.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="PHKustom Chat Client" Width="1280" Height="800" MinWidth="900" MinHeight="600">
+  <Grid RowDefinitions="*,Auto" ColumnDefinitions="260,*">
+    <Border Grid.Row="0" Grid.Column="0" Background="#111B21" BorderBrush="#2A3942" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,Auto,*">
+        <Grid Margin="14" ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Text="Blikbrein Pyn" FontSize="20" FontWeight="Bold" />
+            <TextBlock Text="Active chats" Opacity="0.7" />
+          </StackPanel>
+          <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshChatsCommand}" />
+        </Grid>
+        <TextBox Grid.Row="1" Margin="12,0,12,10" Watermark="Search contacts" Text="{Binding SearchText}" />
+        <ListBox Grid.Row="2" ItemsSource="{Binding FilteredChats}" SelectedItem="{Binding SelectedChat}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="models:ChatSummary">
+              <Grid Margin="8" ColumnDefinitions="48,*">
+                <Border Width="42" Height="42" CornerRadius="21" Background="#2A7F76">
+                  <TextBlock Text="{Binding DisplayName[0]}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Id}" FontSize="11" Opacity="0.65" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="0" Grid.Column="1" RowDefinitions="Auto,*,Auto">
+      <Border Padding="16" Background="#202C33">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <StackPanel>
+            <TextBlock Text="{Binding SelectedChat.DisplayName, FallbackValue=Select an active chat}" FontSize="18" FontWeight="Bold" />
+            <TextBlock Text="{Binding SelectedChat.Id}" Opacity="0.65" />
+          </StackPanel>
+          <Button Grid.Column="1" Margin="6,0" Content="Export CSV" Command="{Binding ExportCsvCommand}" />
+          <Button Grid.Column="2" Margin="6,0" Content="Save Media" Command="{Binding ExportMediaCommand}" />
+        </Grid>
+      </Border>
+
+      <ListBox Grid.Row="1" ItemsSource="{Binding Messages}" Background="#0B141A">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="models:ChatMessage">
+            <Border Margin="12,5" Padding="12" CornerRadius="8" Background="#202C33" MaxWidth="720" HorizontalAlignment="Left">
+              <StackPanel>
+                <TextBlock Text="{Binding SentAt}" FontSize="11" Opacity="0.6" />
+                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap" FontSize="14" />
+                <TextBlock Text="{Binding MimeType}" FontSize="11" Opacity="0.6" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <Border Grid.Row="2" Padding="12" Background="#202C33">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox Text="{Binding MessageText}" Watermark="Type a message" AcceptsReturn="True" MinHeight="42" />
+          <Button Grid.Column="1" Margin="10,0,0,0" Content="Send" Command="{Binding SendCommand}" MinWidth="80" />
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,220,Auto" Background="#182229" Margin="0">
+      <TextBlock Margin="10,6" Text="{Binding Status}" />
+      <ProgressBar Grid.Column="1" Margin="8" Minimum="0" Maximum="100" Value="{Binding Progress}" />
+      <Button Grid.Column="2" Margin="8" Content="Clean cache" Command="{Binding CleanupCacheCommand}" />
+    </Grid>
+  </Grid>
+</Window>
