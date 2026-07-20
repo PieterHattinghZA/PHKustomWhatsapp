@@ -21,7 +21,10 @@ param(
     [int]$ChatCount = 100,
 
     [ValidateRange(10, 200)]
-    [int]$MessageCount = 50
+    [int]$MessageCount = 50,
+
+    [ValidateRange(0, 3650)]
+    [int]$MediaRetentionDays = 30
 )
 
 $ErrorActionPreference = 'Stop'
@@ -756,6 +759,12 @@ $form.Add_Shown({
     $searchBox.Width = [Math]::Max(80, $leftHeader.ClientSize.Width - 24)
     $sendButton.Left = [Math]::Max(180, $composer.ClientSize.Width - $sendButton.Width - 10)
     $messageBox.Width = [Math]::Max(80, $sendButton.Left - $messageBox.Left - 8)
+    try {
+        Clear-WhatsappLocalData -OlderThanDays $MediaRetentionDays -Confirm:$false
+    }
+    catch {
+        Write-GuiLog -Level WARN -Message ('Retention cleanup failed: {0}' -f $_.Exception.Message)
+    }
     Refresh-ActiveChats
     $timer.Start()
 })
