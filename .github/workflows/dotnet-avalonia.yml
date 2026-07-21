@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   build:
-    name: Restore and build
+    name: Restore, build and publish
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -48,17 +48,22 @@ jobs:
           dotnet build src/PHKustom.ChatClient/PHKustom.ChatClient.csproj --configuration Release --no-restore --warnaserror 2>&1 | Tee-Object -FilePath artifacts/build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Upload build diagnostics
+      - name: Publish Windows x64
+        shell: pwsh
+        run: |
+          dotnet publish src/PHKustom.ChatClient/PHKustom.ChatClient.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/PHKustom.ChatClient-win-x64 2>&1 | Tee-Object -FilePath artifacts/publish.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PHKustom.ChatClient-build-log
-          path: artifacts/build.log
+          name: PHKustom.ChatClient-diagnostics
+          path: |
+            artifacts/build.log
+            artifacts/publish.log
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Publish Windows x64
-        run: dotnet publish src/PHKustom.ChatClient/PHKustom.ChatClient.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/PHKustom.ChatClient-win-x64
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
