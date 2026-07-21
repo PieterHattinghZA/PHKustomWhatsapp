@@ -5,6 +5,7 @@ Private Green API HTTP client with URL encoding, bounded retries and logging.
 
 function ConvertTo-WhatsappQueryString {
     [CmdletBinding()]
+    [OutputType([string])]
     param([hashtable]$QueryParams)
 
     if (-not $QueryParams -or $QueryParams.Count -eq 0) { return '' }
@@ -18,6 +19,7 @@ function ConvertTo-WhatsappQueryString {
 }
 
 function Get-WhatsappRetryDelay {
+    [OutputType([double])]
     param(
         [int]$Attempt,
         [object]$Response
@@ -33,6 +35,7 @@ function Get-WhatsappRetryDelay {
 }
 
 function Test-WhatsappTransientFailure {
+    [OutputType([bool])]
     param([System.Management.Automation.ErrorRecord]$ErrorRecord)
 
     if ($ErrorRecord.Exception -is [Net.WebException]) {
@@ -57,6 +60,7 @@ function Test-WhatsappTransientFailure {
 
 function Invoke-WhatsappApi {
     [CmdletBinding()]
+    [OutputType([PSObject], [bool])]
     param(
         [Parameter(Mandatory = $true)][string]$Endpoint,
         [ValidateSet('GET','POST','PUT','DELETE')][string]$Method = 'POST',
