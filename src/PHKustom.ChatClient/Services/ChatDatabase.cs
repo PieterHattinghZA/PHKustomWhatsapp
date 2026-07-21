@@ -11,7 +11,7 @@ public sealed class ChatDatabase(AppPaths paths)
     {
         await using var connection = new SqliteConnection(ConnectionString);
         await connection.OpenAsync();
-        var command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
         command.CommandText = """
             PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS Messages(
@@ -27,10 +27,10 @@ public sealed class ChatDatabase(AppPaths paths)
     {
         await using var connection = new SqliteConnection(ConnectionString);
         await connection.OpenAsync(token);
-        await using var transaction = await connection.BeginTransactionAsync(token);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(token);
         foreach (var item in messages)
         {
-            var command = connection.CreateCommand();
+            await using var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = """
                 INSERT INTO Messages VALUES($id,$chat,$timestamp,$outgoing,$type,$text,$caption,$url,$file,$mime)
