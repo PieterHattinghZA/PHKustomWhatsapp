@@ -87,7 +87,7 @@ public sealed partial class MainWindowViewModel(
     private async Task ExportMediaAsync(CancellationToken token)
     {
         Progress = 0;
-        var reporter = new Progress<double>(value => Progress = value * 100);
+        var reporter = new System.Progress<double>(value => Progress = value * 100);
         await RunAsync("Exporting media...", async () => Status = $"Exported {(await exports.ExportMediaAsync(Messages, reporter, token)).Count} media files");
     }
 

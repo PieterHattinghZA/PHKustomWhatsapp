@@ -28,11 +28,6 @@ public sealed class GreenApiClient(HttpClient http, AppConfigurationService conf
         var result = new List<ChatSummary>();
         foreach (var item in document.RootElement.EnumerateArray())
         {
-<<<<<<< HEAD
-            var id = item.GetProperty("id").GetString();
-            if (id == null) continue;
-            var archived = item.TryGetProperty("archive", out var archive) && archive.GetBoolean();
-=======
             var id = item.TryGetProperty("id", out var idNode) ? idNode.GetString() : null;
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -40,7 +35,6 @@ public sealed class GreenApiClient(HttpClient http, AppConfigurationService conf
             }
 
             var archived = item.TryGetProperty("archive", out var archive) && archive.ValueKind == JsonValueKind.True;
->>>>>>> da40c24038aa567e7ba8a24e77b411676b3fdd96
             result.Add(new ChatSummary(id, NameFromId(id), null, archived));
         }
 
@@ -54,22 +48,10 @@ public sealed class GreenApiClient(HttpClient http, AppConfigurationService conf
                 var contact = await GetContactAsync(chat.Id, token);
                 resolved[i] = chat with { DisplayName = contact.Name ?? chat.DisplayName, AvatarUrl = contact.Avatar };
             }
-<<<<<<< HEAD
             catch { resolved[i] = chat; }
             finally { semaphore.Release(); }
         });
         await Task.WhenAll(tasks);
-=======
-            catch (HttpRequestException)
-            {
-                resolved.Add(chat);
-            }
-            catch (JsonException)
-            {
-                resolved.Add(chat);
-            }
-        }
->>>>>>> da40c24038aa567e7ba8a24e77b411676b3fdd96
         return resolved;
     }
 

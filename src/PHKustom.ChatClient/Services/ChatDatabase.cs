@@ -30,13 +30,8 @@ public sealed class ChatDatabase(AppPaths paths)
         await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(token);
         foreach (var item in messages)
         {
-<<<<<<< HEAD
-            var command = connection.CreateCommand();
-            command.Transaction = (SqliteTransaction)transaction;
-=======
             await using var command = connection.CreateCommand();
             command.Transaction = transaction;
->>>>>>> da40c24038aa567e7ba8a24e77b411676b3fdd96
             command.CommandText = """
                 INSERT INTO Messages VALUES($id,$chat,$timestamp,$outgoing,$type,$text,$caption,$url,$file,$mime)
                 ON CONFLICT(Id) DO UPDATE SET Text=$text, Caption=$caption, DownloadUrl=$url, FileName=$file, MimeType=$mime;
