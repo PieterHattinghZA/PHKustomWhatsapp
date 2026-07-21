@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "WQ9tMgXVXnY=",
+  "dgSpecHash": "ufjigiOQvLw=",
   "success": true,
-  "projectFilePath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
+  "projectFilePath": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Pieter\\.nuget\\packages\\avalonia\\12.1.0\\avalonia.12.1.0.nupkg.sha512",
     "C:\\Users\\Pieter\\.nuget\\packages\\avalonia.angle.windows.natives\\2.1.27548.20260419\\avalonia.angle.windows.natives.2.1.27548.20260419.nupkg.sha512",

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj": {}
+    "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj": {}
   },
   "projects": {
-    "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj": {
+    "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
+        "projectUniqueName": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
         "projectName": "PHKustom.ChatClient",
-        "projectPath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
+        "projectPath": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
         "packagesPath": "C:\\Users\\Pieter\\.nuget\\packages\\",
-        "outputPath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\obj\\",
+        "outputPath": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Pieter\\AppData\\Roaming\\NuGet\\NuGet.Config"

@@ -34,8 +34,10 @@ public sealed class GreenApiClient(HttpClient http, AppConfigurationService conf
                 continue;
             }
 
+            var name = item.TryGetProperty("name", out var n1) ? n1.GetString() : null;
+            name ??= item.TryGetProperty("chatName", out var n2) ? n2.GetString() : null;
             var archived = item.TryGetProperty("archive", out var archive) && archive.ValueKind == JsonValueKind.True;
-            result.Add(new ChatSummary(id, NameFromId(id), null, archived));
+            result.Add(new ChatSummary(id, !string.IsNullOrWhiteSpace(name) ? name : NameFromId(id), null, archived));
         }
 
         var resolved = new ChatSummary[result.Count];
@@ -46,7 +48,8 @@ public sealed class GreenApiClient(HttpClient http, AppConfigurationService conf
             try
             {
                 var contact = await GetContactAsync(chat.Id, token);
-                resolved[i] = chat with { DisplayName = contact.Name ?? chat.DisplayName, AvatarUrl = contact.Avatar };
+                var resolvedName = !string.IsNullOrWhiteSpace(contact.Name) ? contact.Name : chat.DisplayName;
+                resolved[i] = chat with { DisplayName = resolvedName, AvatarUrl = contact.Avatar };
             }
             catch { resolved[i] = chat; }
             finally { semaphore.Release(); }
@@ -60,11 +63,12 @@ public sealed class GreenApiClient(HttpClient http, AppConfigurationService conf
         if (chatId.EndsWith("@g.us", StringComparison.OrdinalIgnoreCase)) return (null, null);
         var uri = await EndpointAsync("getContactInfo", token);
         using var response = await http.PostAsJsonAsync(uri, new { chatId }, token);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode) return (null, null);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(token));
         var root = document.RootElement;
-        var name = root.TryGetProperty("contactName", out var contactName) ? contactName.GetString() : null;
-        name ??= root.TryGetProperty("name", out var fallbackName) ? fallbackName.GetString() : null;
+        var name = root.TryGetProperty("name", out var fallbackName) && !string.IsNullOrWhiteSpace(fallbackName.GetString()) ? fallbackName.GetString() : null;
+        name ??= root.TryGetProperty("contactName", out var contactName) && !string.IsNullOrWhiteSpace(contactName.GetString()) ? contactName.GetString() : null;
+        name ??= root.TryGetProperty("pushName", out var pushName) && !string.IsNullOrWhiteSpace(pushName.GetString()) ? pushName.GetString() : null;
         var avatar = root.TryGetProperty("avatar", out var avatarNode) ? avatarNode.GetString() : null;
         return (name, avatar);
     }
