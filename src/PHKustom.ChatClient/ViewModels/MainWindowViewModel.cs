@@ -15,12 +15,12 @@ public sealed partial class MainWindowViewModel(
     public ObservableCollection<ChatSummary> Chats { get; } = [];
     public ObservableCollection<ChatMessage> Messages { get; } = [];
 
-    [ObservableProperty] private ChatSummary? selectedChat;
-    [ObservableProperty] private string searchText = string.Empty;
-    [ObservableProperty] private string messageText = string.Empty;
-    [ObservableProperty] private string status = "Ready";
-    [ObservableProperty] private bool isBusy;
-    [ObservableProperty] private double progress;
+    [ObservableProperty] private ChatSummary? _selectedChat;
+    [ObservableProperty] private string _searchText = string.Empty;
+    [ObservableProperty] private string _messageText = string.Empty;
+    [ObservableProperty] private string _status = "Ready";
+    [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private double _progress;
 
     public IEnumerable<ChatSummary> FilteredChats => Chats.Where(x =>
         string.IsNullOrWhiteSpace(SearchText) ||
