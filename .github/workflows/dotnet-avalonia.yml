@@ -42,7 +42,20 @@ jobs:
         run: dotnet restore src/PHKustom.ChatClient/PHKustom.ChatClient.csproj
 
       - name: Build
-        run: dotnet build src/PHKustom.ChatClient/PHKustom.ChatClient.csproj --configuration Release --no-restore --warnaserror
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          dotnet build src/PHKustom.ChatClient/PHKustom.ChatClient.csproj --configuration Release --no-restore --warnaserror 2>&1 | Tee-Object -FilePath artifacts/build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PHKustom.ChatClient-build-log
+          path: artifacts/build.log
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Publish Windows x64
         run: dotnet publish src/PHKustom.ChatClient/PHKustom.ChatClient.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/PHKustom.ChatClient-win-x64
