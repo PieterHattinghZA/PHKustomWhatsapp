@@ -28,21 +28,26 @@ public sealed class GreenApiClient(HttpClient http, AppConfigurationService conf
         var result = new List<ChatSummary>();
         foreach (var item in document.RootElement.EnumerateArray())
         {
-            var id = item.GetProperty("id").GetString() ?? continue;
+            var id = item.GetProperty("id").GetString();
+            if (id == null) continue;
             var archived = item.TryGetProperty("archive", out var archive) && archive.GetBoolean();
             result.Add(new ChatSummary(id, NameFromId(id), null, archived));
         }
 
-        var resolved = new List<ChatSummary>(result.Count);
-        foreach (var chat in result)
+        var resolved = new ChatSummary[result.Count];
+        using var semaphore = new SemaphoreSlim(5);
+        var tasks = result.Select(async (chat, i) =>
         {
+            await semaphore.WaitAsync(token);
             try
             {
                 var contact = await GetContactAsync(chat.Id, token);
-                resolved.Add(chat with { DisplayName = contact.Name ?? chat.DisplayName, AvatarUrl = contact.Avatar });
+                resolved[i] = chat with { DisplayName = contact.Name ?? chat.DisplayName, AvatarUrl = contact.Avatar };
             }
-            catch { resolved.Add(chat); }
-        }
+            catch { resolved[i] = chat; }
+            finally { semaphore.Release(); }
+        });
+        await Task.WhenAll(tasks);
         return resolved;
     }
 

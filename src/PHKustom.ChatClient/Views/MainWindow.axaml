@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PHKustom.ChatClient.ViewModels"
         xmlns:models="using:PHKustom.ChatClient.Models"
+        xmlns:services="using:PHKustom.ChatClient.Services"
         x:Class="PHKustom.ChatClient.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="PHKustom Chat Client" Width="1280" Height="800" MinWidth="900" MinHeight="600">
@@ -24,8 +25,8 @@
                   <TextBlock Text="{Binding Initial}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" />
                 </Border>
                 <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                  <TextBlock Text="{Binding Id}" FontSize="11" Opacity="0.65" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding FormattedName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding DisplayId}" FontSize="11" Opacity="0.65" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
               </Grid>
             </DataTemplate>
@@ -38,8 +39,8 @@
       <Border Padding="16" Background="#202C33">
         <Grid ColumnDefinitions="*,Auto,Auto">
           <StackPanel>
-            <TextBlock Text="{Binding SelectedChat.DisplayName, FallbackValue=Select an active chat}" FontSize="18" FontWeight="Bold" />
-            <TextBlock Text="{Binding SelectedChat.Id}" Opacity="0.65" />
+            <TextBlock Text="{Binding SelectedChat.FormattedName, FallbackValue=Select an active chat}" FontSize="18" FontWeight="Bold" />
+            <TextBlock Text="{Binding SelectedChat.DisplayId}" Opacity="0.65" />
           </StackPanel>
           <Button Grid.Column="1" Margin="6,0" Content="Export CSV" Command="{Binding ExportCsvCommand}" />
           <Button Grid.Column="2" Margin="6,0" Content="Save Media" Command="{Binding ExportMediaCommand}" />
@@ -51,9 +52,11 @@
           <DataTemplate x:DataType="models:ChatMessage">
             <Border Margin="12,5" Padding="12" CornerRadius="8" Background="#202C33" MaxWidth="720" HorizontalAlignment="Left">
               <StackPanel>
-                <TextBlock Text="{Binding SentAt}" FontSize="11" Opacity="0.6" />
+                <TextBlock Text="{Binding FormattedTime}" FontSize="11" Opacity="0.6" />
                 <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap" FontSize="14" />
                 <TextBlock Text="{Binding MimeType}" FontSize="11" Opacity="0.6" />
+                <TextBox Text="{Binding DownloadUrl}" IsVisible="{Binding DownloadUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" IsReadOnly="True" BorderThickness="0" Background="Transparent" Foreground="#53A6FD" FontSize="11" Margin="0,4,0,0" Padding="0" />
+                <Image Source="{Binding DownloadUrl, Converter={x:Static services:ImageLoaderConverter.Instance}}" MaxWidth="400" MaxHeight="400" Margin="0,8,0,0" IsVisible="{Binding IsImage}" />
               </StackPanel>
             </Border>
           </DataTemplate>

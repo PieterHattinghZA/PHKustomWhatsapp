@@ -31,7 +31,7 @@ public sealed class ChatDatabase(AppPaths paths)
         foreach (var item in messages)
         {
             var command = connection.CreateCommand();
-            command.Transaction = transaction;
+            command.Transaction = (SqliteTransaction)transaction;
             command.CommandText = """
                 INSERT INTO Messages VALUES($id,$chat,$timestamp,$outgoing,$type,$text,$caption,$url,$file,$mime)
                 ON CONFLICT(Id) DO UPDATE SET Text=$text, Caption=$caption, DownloadUrl=$url, FileName=$file, MimeType=$mime;
