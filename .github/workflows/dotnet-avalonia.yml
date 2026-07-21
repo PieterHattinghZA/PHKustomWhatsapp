@@ -1,0 +1,56 @@
+name: .NET 10 Avalonia validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/PHKustom.ChatClient/**'
+      - '.github/workflows/dotnet-avalonia.yml'
+  push:
+    branches:
+      - agent/fix-gui-stability-and-exports
+    paths:
+      - 'src/PHKustom.ChatClient/**'
+      - '.github/workflows/dotnet-avalonia.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Restore and build
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: src/PHKustom.ChatClient/PHKustom.ChatClient.csproj
+
+      - name: Display .NET information
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore src/PHKustom.ChatClient/PHKustom.ChatClient.csproj
+
+      - name: Build
+        run: dotnet build src/PHKustom.ChatClient/PHKustom.ChatClient.csproj --configuration Release --no-restore --warnaserror
+
+      - name: Publish Windows x64
+        run: dotnet publish src/PHKustom.ChatClient/PHKustom.ChatClient.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false --output artifacts/PHKustom.ChatClient-win-x64
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: PHKustom.ChatClient-win-x64
+          path: artifacts/PHKustom.ChatClient-win-x64
+          if-no-files-found: error
+          retention-days: 14
