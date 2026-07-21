@@ -28,8 +28,13 @@ public sealed class GreenApiClient(HttpClient http, AppConfigurationService conf
         var result = new List<ChatSummary>();
         foreach (var item in document.RootElement.EnumerateArray())
         {
-            var id = item.GetProperty("id").GetString() ?? continue;
-            var archived = item.TryGetProperty("archive", out var archive) && archive.GetBoolean();
+            var id = item.TryGetProperty("id", out var idNode) ? idNode.GetString() : null;
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            var archived = item.TryGetProperty("archive", out var archive) && archive.ValueKind == JsonValueKind.True;
             result.Add(new ChatSummary(id, NameFromId(id), null, archived));
         }
 
@@ -41,7 +46,14 @@ public sealed class GreenApiClient(HttpClient http, AppConfigurationService conf
                 var contact = await GetContactAsync(chat.Id, token);
                 resolved.Add(chat with { DisplayName = contact.Name ?? chat.DisplayName, AvatarUrl = contact.Avatar });
             }
-            catch { resolved.Add(chat); }
+            catch (HttpRequestException)
+            {
+                resolved.Add(chat);
+            }
+            catch (JsonException)
+            {
+                resolved.Add(chat);
+            }
         }
         return resolved;
     }
