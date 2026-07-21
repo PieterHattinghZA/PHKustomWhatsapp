@@ -15,7 +15,7 @@
           </StackPanel>
           <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshChatsCommand}" />
         </Grid>
-        <TextBox Grid.Row="1" Margin="12,0,12,10" Watermark="Search contacts" Text="{Binding SearchText}" />
+        <TextBox Grid.Row="1" Margin="12,0,12,10" PlaceholderText="Search contacts" Text="{Binding SearchText}" />
         <ListBox Grid.Row="2" ItemsSource="{Binding FilteredChats}" SelectedItem="{Binding SelectedChat}">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="models:ChatSummary">
@@ -62,7 +62,7 @@
 
       <Border Grid.Row="2" Padding="12" Background="#202C33">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBox Text="{Binding MessageText}" Watermark="Type a message" AcceptsReturn="True" MinHeight="42" />
+          <TextBox Text="{Binding MessageText}" PlaceholderText="Type a message" AcceptsReturn="True" MinHeight="42" />
           <Button Grid.Column="1" Margin="10,0,0,0" Content="Send" Command="{Binding SendCommand}" MinWidth="80" />
         </Grid>
       </Border>
