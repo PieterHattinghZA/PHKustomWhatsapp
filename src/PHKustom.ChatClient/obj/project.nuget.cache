@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "xe9L74Sbm4o=",
+  "dgSpecHash": "ufjigiOQvLw=",
   "success": true,
-  "projectFilePath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
+  "projectFilePath": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Pieter\\.nuget\\packages\\avalonia\\12.1.0\\avalonia.12.1.0.nupkg.sha512",
     "C:\\Users\\Pieter\\.nuget\\packages\\avalonia.angle.windows.natives\\2.1.27548.20260419\\avalonia.angle.windows.natives.2.1.27548.20260419.nupkg.sha512",
@@ -62,24 +62,11 @@
     "C:\\Users\\Pieter\\.nuget\\packages\\skiasharp.nativeassets.win32\\3.119.4\\skiasharp.nativeassets.win32.3.119.4.nupkg.sha512",
     "C:\\Users\\Pieter\\.nuget\\packages\\sqlitepclraw.bundle_e_sqlite3\\2.1.11\\sqlitepclraw.bundle_e_sqlite3.2.1.11.nupkg.sha512",
     "C:\\Users\\Pieter\\.nuget\\packages\\sqlitepclraw.core\\2.1.11\\sqlitepclraw.core.2.1.11.nupkg.sha512",
-    "C:\\Users\\Pieter\\.nuget\\packages\\sqlitepclraw.lib.e_sqlite3\\2.1.11\\sqlitepclraw.lib.e_sqlite3.2.1.11.nupkg.sha512",
+    "C:\\Users\\Pieter\\.nuget\\packages\\sqlitepclraw.lib.e_sqlite3\\2.1.12\\sqlitepclraw.lib.e_sqlite3.2.1.12.nupkg.sha512",
     "C:\\Users\\Pieter\\.nuget\\packages\\sqlitepclraw.provider.e_sqlite3\\2.1.11\\sqlitepclraw.provider.e_sqlite3.2.1.11.nupkg.sha512",
     "C:\\Users\\Pieter\\.nuget\\packages\\system.diagnostics.eventlog\\10.0.10\\system.diagnostics.eventlog.10.0.10.nupkg.sha512",
     "C:\\Users\\Pieter\\.nuget\\packages\\system.security.cryptography.protecteddata\\10.0.0\\system.security.cryptography.protecteddata.10.0.0.nupkg.sha512",
     "C:\\Users\\Pieter\\.nuget\\packages\\tmds.dbus.protocol\\0.94.1\\tmds.dbus.protocol.0.94.1.nupkg.sha512"
   ],
-  "logs": [
-    {
-      "code": "NU1903",
-      "level": "Warning",
-      "message": "Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q",
-      "projectPath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
-      "warningLevel": 1,
-      "filePath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
-      "libraryId": "SQLitePCLRaw.lib.e_sqlite3",
-      "targetGraphs": [
-        "net10.0"
-      ]
-    }
-  ]
+  "logs": []
 }

@@ -1265,7 +1265,7 @@
           "lib/netstandard2.0/SQLitePCLRaw.core.dll": {}
         }
       },
-      "SQLitePCLRaw.lib.e_sqlite3/2.1.11": {
+      "SQLitePCLRaw.lib.e_sqlite3/2.1.12": {
         "type": "package",
         "compile": {
           "lib/netstandard2.0/_._": {}
@@ -1352,10 +1352,6 @@
           "runtimes/osx-x64/native/libe_sqlite3.dylib": {
             "assetType": "native",
             "rid": "osx-x64"
-          },
-          "runtimes/win-arm/native/e_sqlite3.dll": {
-            "assetType": "native",
-            "rid": "win-arm"
           },
           "runtimes/win-arm64/native/e_sqlite3.dll": {
             "assetType": "native",
@@ -3195,10 +3191,10 @@
         "sqlitepclraw.core.nuspec"
       ]
     },
-    "SQLitePCLRaw.lib.e_sqlite3/2.1.11": {
-      "sha512": "Ev2ytaXiOlWZ4b3R67GZBsemTINslLD1DCJr2xiacpn4tbapu0Q4dHEzSvZSMnVWeE5nlObU3VZN2p81q3XOYQ==",
+    "SQLitePCLRaw.lib.e_sqlite3/2.1.12": {
+      "sha512": "fWi8Dbknuhgg72fWinIdjXVaqO1hHL4YBBwVLnr7e1c9TAZwJ0QE38j9syW1hwx6HaqEVTwI+O07WPdZn8Rp0w==",
       "type": "package",
-      "path": "sqlitepclraw.lib.e_sqlite3/2.1.11",
+      "path": "sqlitepclraw.lib.e_sqlite3/2.1.12",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -3231,15 +3227,10 @@
         "runtimes/maccatalyst-x64/native/libe_sqlite3.dylib",
         "runtimes/osx-arm64/native/libe_sqlite3.dylib",
         "runtimes/osx-x64/native/libe_sqlite3.dylib",
-        "runtimes/win-arm/native/e_sqlite3.dll",
         "runtimes/win-arm64/native/e_sqlite3.dll",
         "runtimes/win-x64/native/e_sqlite3.dll",
         "runtimes/win-x86/native/e_sqlite3.dll",
-        "runtimes/win10-arm/nativeassets/uap10.0/e_sqlite3.dll",
-        "runtimes/win10-arm64/nativeassets/uap10.0/e_sqlite3.dll",
-        "runtimes/win10-x64/nativeassets/uap10.0/e_sqlite3.dll",
-        "runtimes/win10-x86/nativeassets/uap10.0/e_sqlite3.dll",
-        "sqlitepclraw.lib.e_sqlite3.2.1.11.nupkg.sha512",
+        "sqlitepclraw.lib.e_sqlite3.2.1.12.nupkg.sha512",
         "sqlitepclraw.lib.e_sqlite3.nuspec"
       ]
     },
@@ -3364,6 +3355,7 @@
       "Microsoft.Data.Sqlite >= 10.0.10",
       "Microsoft.Extensions.Hosting >= 10.0.10",
       "Microsoft.Extensions.Http >= 10.0.10",
+      "SQLitePCLRaw.lib.e_sqlite3 >= 2.1.12",
       "System.Security.Cryptography.ProtectedData >= 10.0.0"
     ]
   },
@@ -3373,11 +3365,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
+      "projectUniqueName": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
       "projectName": "PHKustom.ChatClient",
-      "projectPath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
+      "projectPath": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
       "packagesPath": "C:\\Users\\Pieter\\.nuget\\packages\\",
-      "outputPath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\obj\\",
+      "outputPath": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Pieter\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -3443,6 +3435,10 @@
           "Microsoft.Extensions.Http": {
             "target": "Package",
             "version": "[10.0.10, )"
+          },
+          "SQLitePCLRaw.lib.e_sqlite3": {
+            "target": "Package",
+            "version": "[2.1.12, )"
           },
           "System.Security.Cryptography.ProtectedData": {
             "target": "Package",
@@ -3742,17 +3738,5 @@
         }
       }
     }
-  },
-  "logs": [
-    {
-      "code": "NU1903",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q",
-      "libraryId": "SQLitePCLRaw.lib.e_sqlite3",
-      "targetGraphs": [
-        "net10.0"
-      ]
-    }
-  ]
+  }
 }
