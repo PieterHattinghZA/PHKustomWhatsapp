@@ -3365,11 +3365,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
+      "projectUniqueName": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
       "projectName": "PHKustom.ChatClient",
-      "projectPath": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
+      "projectPath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\PHKustom.ChatClient.csproj",
       "packagesPath": "C:\\Users\\Pieter\\.nuget\\packages\\",
-      "outputPath": "c:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\obj\\",
+      "outputPath": "C:\\Scripts\\PHKustom-Whatsapp\\src\\PHKustom.ChatClient\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Pieter\\AppData\\Roaming\\NuGet\\NuGet.Config"

@@ -1,8 +1,0 @@
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Release\net10.0\win-x64\publish\PHKustom.ChatClient.pdb
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Release\net10.0\win-x64\publish\av_libglesv2.dll
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Release\net10.0\win-x64\publish\libHarfBuzzSharp.dll
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Release\net10.0\win-x64\publish\libHarfBuzzSharp.pdb
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Release\net10.0\win-x64\publish\libSkiaSharp.dll
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Release\net10.0\win-x64\publish\libSkiaSharp.pdb
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Release\net10.0\win-x64\publish\e_sqlite3.dll
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Release\net10.0\win-x64\publish\PHKustom.ChatClient.exe

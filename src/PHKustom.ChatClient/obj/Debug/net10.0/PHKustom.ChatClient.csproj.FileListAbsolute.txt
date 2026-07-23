@@ -2,7 +2,6 @@ C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Debug\net10.0\PHKustom.
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Debug\net10.0\PHKustom.ChatClient.deps.json
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Debug\net10.0\PHKustom.ChatClient.runtimeconfig.json
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Debug\net10.0\PHKustom.ChatClient.dll
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Debug\net10.0\PHKustom.ChatClient.pdb
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Debug\net10.0\Avalonia.Base.dll
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Debug\net10.0\Avalonia.Controls.dll
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Debug\net10.0\Avalonia.DesignerSupport.dll
@@ -141,7 +140,6 @@ C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\obj\Debug\net10.0\PHKustom.
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\obj\Debug\net10.0\PHKustom.ChatClient.sourcelink.json
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\obj\Debug\net10.0\PHKustom.4D81113E.Up2Date
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\obj\Debug\net10.0\PHKustom.ChatClient.dll
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\obj\Debug\net10.0\refint\PHKustom.ChatClient.dll
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\obj\Debug\net10.0\PHKustom.ChatClient.pdb
 C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\obj\Debug\net10.0\PHKustom.ChatClient.genruntimeconfig.cache
-C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\obj\Debug\net10.0\ref\PHKustom.ChatClient.dll
+C:\Scripts\PHKustom-Whatsapp\src\PHKustom.ChatClient\bin\Debug\net10.0\PHKustom.ChatClient.pdb
