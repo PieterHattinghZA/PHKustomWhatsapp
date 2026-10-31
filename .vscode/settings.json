@@ -1,8 +1,5 @@
 {
-    "remoteHub.richNavigation.indexMode": {
-
-
-    },
+    "remoteHub.richNavigation.indexMode": {},
     "editor.defaultFormatter": "sindujaramaraj.app-developer-copilot",
     "[powershell]": {
         "editor.defaultFormatter": "ms-vscode.powershell"
@@ -10,5 +7,11 @@
     "postman.account.region": "EU",
     "[jsonc]": {
         "editor.defaultFormatter": "vscode.json-language-features"
-    }
+    },
+    "dotnetAcquisitionExtension.existingDotnetPath": [
+        {
+            "extensionId": "ms-dotnettools.csharp",
+            "path": "C:\\Program Files\\dotnet\\dotnet.exe"
+        }
+    ]
 }

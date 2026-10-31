@@ -1,3 +1,9 @@
+<#
+.SYNOPSIS
+    Display a WhatsApp chat client with contacts, message history, media, and send controls.
+#>
+
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 

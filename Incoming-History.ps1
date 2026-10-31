@@ -1,3 +1,9 @@
+<#
+.SYNOPSIS
+    Retrieve and display recent incoming WhatsApp messages.
+#>
+
+
 Import-Module .\PHKustomWhatsapp.psd1 -Force
 
 # Retrieve incoming messages from the last 50 minutes

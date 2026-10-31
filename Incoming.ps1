@@ -1,3 +1,9 @@
+<#
+.SYNOPSIS
+    Receive WhatsApp notifications and acknowledge processed queue entries.
+#>
+
+
 
 # Fetch the next notification from the queue
 $notification = Receive-WhatsappNotification

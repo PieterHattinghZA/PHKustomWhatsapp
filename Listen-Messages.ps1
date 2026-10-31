@@ -1,3 +1,9 @@
+<#
+.SYNOPSIS
+    Poll incoming WhatsApp notifications and persist messages to local history.
+#>
+
+
 Import-Module .\PHKustomWhatsapp.psd1 -Force
 
 # --- Ensure Databases and Config Folder Exists ---

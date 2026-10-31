@@ -1,3 +1,9 @@
+<#
+.SYNOPSIS
+    Synchronize WhatsApp contacts and chat histories into the local message database.
+#>
+
+
 Import-Module .\PHKustomWhatsapp.psd1 -Force
 
 # --- Setup Native File Targets ---
