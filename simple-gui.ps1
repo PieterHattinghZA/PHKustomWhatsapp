@@ -1,7 +1,6 @@
 <#
 .SYNOPSIS
-    Two-column Green API chat client for Windows PowerShell 5.1.
-
+    Display a WhatsApp chat client with contacts, message history, media, and send controls.
 .DESCRIPTION
     Retrieves active chats first, resolves their contact names, and displays the
     selected chat in the right-hand pane. Images are rendered in the conversation.

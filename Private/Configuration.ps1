@@ -1,5 +1,11 @@
 <#
 .SYNOPSIS
+    Manage WhatsApp configuration, protected credentials, logs, and local-data access rules.
+#>
+
+
+<#
+.SYNOPSIS
 Private configuration, credential-protection and local-data security helpers.
 #>
 

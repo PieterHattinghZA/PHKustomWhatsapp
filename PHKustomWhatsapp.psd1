@@ -1,3 +1,9 @@
+<#
+.SYNOPSIS
+    Declare the PHKustomWhatsapp module version, exports, and loading requirements.
+#>
+
+
 @{
     RootModule        = 'PHKustomWhatsapp.psm1'
     ModuleVersion     = '4.1.0'

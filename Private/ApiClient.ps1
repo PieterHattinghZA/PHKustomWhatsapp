@@ -1,5 +1,11 @@
 <#
 .SYNOPSIS
+    Provide Green API HTTP requests, query encoding, retry delays, and transient-failure handling.
+#>
+
+
+<#
+.SYNOPSIS
 Private Green API HTTP client with URL encoding, bounded retries and logging.
 #>
 

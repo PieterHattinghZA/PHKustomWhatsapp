@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Pester validation for PHKustomWhatsapp.
+    Validate the WhatsApp module manifest, source layout, and exported interface with Pester.
 #>
 
 BeforeAll {

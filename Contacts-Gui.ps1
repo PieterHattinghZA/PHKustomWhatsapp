@@ -1,3 +1,9 @@
+<#
+.SYNOPSIS
+    Browse WhatsApp contacts and view their conversation history in a GUI.
+#>
+
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 

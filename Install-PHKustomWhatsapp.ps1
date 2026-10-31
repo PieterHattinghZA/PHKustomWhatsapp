@@ -1,7 +1,6 @@
 <#
 .SYNOPSIS
-    Installs PHKustomWhatsapp 4.1.0 for the current user or all users.
-
+    Install the WhatsApp module for the selected user scope and validate its manifest.
 .DESCRIPTION
     Copies the manifest, module, private implementation files and GUI to a
     versioned Windows PowerShell module directory. AllUsers installation

@@ -1,3 +1,9 @@
+<#
+.SYNOPSIS
+    Configure static analysis rules for the WhatsApp project.
+#>
+
+
 @{
     Severity = @('Error','Warning')
     IncludeDefaultRules = $true

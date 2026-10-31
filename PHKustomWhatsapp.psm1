@@ -2,13 +2,7 @@
 
 <#
 .SYNOPSIS
-WhatsApp automation and reporting toolkit using Green API.
-Author: Pieter Hattingh
-Version: 4.1.0
-Description: PowerShell module for WhatsApp messaging, media, status, and contact management via Green API.
-             All config variables are loaded from an external JSON file ($env:APPDATA\PHWhatsapp\config.json).
-             Robust error handling and clear error messages included.
-             Includes: TLS 1.2 enforcement, variable clearing at script start.
+    Provide Green API WhatsApp messaging, media, contacts, history, and local-data functions.
 #>
 
 # --- Global Configuration Variables (Loaded from external file) ---
